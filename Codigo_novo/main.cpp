@@ -18,6 +18,7 @@
 #include "Hvnd.h"
 #include "Hvns.h"
 #include "hstruct.h"
+#include "Hils.h"
 
 using namespace std;
 
@@ -134,7 +135,9 @@ void ler_tciclo_matriz(char *nomearq, float **tciclo, int npilhas, int ncam)
 
 int main()
 {
-
+    // SELETOR DE MÉTODO:
+    // 1 = ILS Normal | 2 = ILS Aleatorio | 3 = Smart ILS Normal | 4 = Smart ILS Aleatorio
+    int metodo = 4;
     char path_base[] = "../codigo_gerar_arquivos/Minas/";
     char buffer[512];
 
@@ -158,7 +161,7 @@ int main()
     int wfdist = 1;
     float alpha = 0.2;
     // --- NOVA ADIÇÃO: Inicialização do Relatório Geral ---
-    char arq_resumo_geral[] = "Relatorios/Resumo_Geral_Minas_GRASP_VND_Adaptativo_1.csv";
+    char arq_resumo_geral[] = "Relatorios/Resumo_Geral_Minas_GRASP_VND(Normal)1.csv";
     FILE *f_resumo = fopen(arq_resumo_geral, "w");
     if (!f_resumo) {
         printf("Erro: Pasta 'Relatorios' nao encontrada.\n");
@@ -335,7 +338,22 @@ int main()
                              npilhas, ncam, nvar, teores, rec, npminerio, 
                              QTDisp, cargamax, cargamin, ncarga, prodrec, remrec, alpha);    
 
-        printf("[INFO] Executando VNS...\n");
+        /*
+        if (metodo == 1) {
+            ILS_Normal(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem);
+        } 
+        else if (metodo == 2) {
+            ILS_Aleatorio(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem);
+        }
+        else if (metodo == 3) {
+            Smart_ILS_Normal(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem);
+        }
+        else if (metodo == 4) {
+            Smart_ILS_Aleatorio(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem);
+        }*/
+
+        
+        printf("[INFO] Executando VNS...\n");   
 
         VNS(s, li, ls, rec,
             penalidadesup, penalidadeinf, penalidadeteorinv,
