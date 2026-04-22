@@ -138,11 +138,11 @@ int main()
     char path_base[] = "../codigo_gerar_arquivos/Minas/";
     char buffer[512];
 
-    int wfproducaoinv = 100000;
+    int wfproducaoinv = 1000000;
     int wfproducaoqualp = 1000;
     int wfproducaoqualn = 1000;
-    int wfteor = 100;
-    int wfrem = 10000;
+    int wfteor = 500000;
+    int wfrem = 100000;
     int wfremqualp = 1;
     int wfremqualn = 1;
     int wfprodutcaminv = 1000;
@@ -153,8 +153,8 @@ int main()
     int wfproducaocamtotal = 1;
     int wfproducaocarga = 1;
     int wfnumcamutilizados = 1;
-    int wfestatico = 900000;
-    int wfnumcam = 900000;
+    int wfestatico = 10000;
+    int wfnumcam = 10000;
     int wfdist = 1;
     float alpha = 0.2;
     // --- NOVA ADIÇÃO: Inicialização do Relatório Geral ---
