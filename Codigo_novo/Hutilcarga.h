@@ -28,3 +28,4 @@ void constroisolucaoGRASP(float *s, struct alocarga *carga, float *capcam, int *
                           float **teores, float *rec, int npminerio, float *QTDisp,
                           float *cargamax, float *cargamin, int ncarga, float prodrec,
                           float remrec, float alpha);
+void constroisolucaoGRASP_Parcial(float *s, struct alocarga *carga, float *capcam, int **compatibilidade, int **nvisitas, int **nviagem, int npilhas, int ncam, int nvar, float **teores, float *rec, int npminerio, float *QTDisp, float *cargamax, float *cargamin, int ncarga, float prodrec, float remrec, float alpha, bool reconstruir_apenas_minerio);

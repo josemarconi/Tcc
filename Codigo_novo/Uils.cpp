@@ -7,12 +7,8 @@
 #include <string.h>
 #include <stdlib.h>
 
-/**
- * PERTURBAÇÃO INTELIGENTE
- * Esta função é o "choque" que tira a solução de um ótimo local.
- * Diferente do VND, ela não busca o melhor vizinho; ela aplica movimentos 
- * aleatórios para desestruturar a solução atual e permitir que o VND 
- * explore uma nova região do espaço de busca.
+/*
+ * PERTURBAÇÃO
  */
 void realizar_perturbacao_inteligente(int **nvisitas, int **nviagem, float *s, float *capcam, int npilhas, int ncam, 
                                       struct alocarga *carga, int **compatibilidade, int nivel) {
@@ -60,8 +56,6 @@ void realizar_perturbacao_inteligente(int **nvisitas, int **nviagem, float *s, f
 
 /**
  * MACRO MESTRE DO ILS (Iterated Local Search)
- * * Por que uma Macro? 
- * Porque o ILS Normal e o Smart ILS compartilham 95% da lógica (Backup, Loop, Perturbação).
  * A macro permite criar as 4 variações mudando apenas o tipo de VND e a lógica de falhas.
  */
 #define EXECUTAR_CORE_ILS(VND_FUNC, SMART_LOGIC) \
@@ -151,4 +145,61 @@ void Smart_ILS_Normal(float *s, float *li, float *ls, float *rec, int *penalidad
 // 4. Smart ILS Aleatório: O topo da inteligência do projeto, unindo VND Aleatório com Perturbação Smart.
 void Smart_ILS_Aleatorio(float *s, float *li, float *ls, float *rec, int *penalidadesup, int *penalidadeinf, int *penalidadeteorinv, int npilhas, int nvar, float **teores, float prodmax, float prodmin, float prodrec, int npminerio, float remrec, float remmax, float remmin, int **nvisitas, struct alocarga *carga, float *capcam, int **compatibilidade, float **tciclo, float tcontrole, int ncam, float *cargamax, float *cargamin, int *nummax, int wfproducaoinv, int wfproducaoqualp, int wfproducaoqualn, int wfteor, int wfrem, int wfremqualp, int wfremqualn, int wfprodutcaminv, int wfprodutcamqualp, int wfprodutcamqualn, int wfprodcargainv, int wfprodcargaqual, int wfproducaocamtotal, int wfproducaocarga, int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist, float *dispmec, int **nviagem) {
     EXECUTAR_CORE_ILS(VND_Aleatorio, true)
+}
+
+
+
+
+// ILS - GRASP: Variante que integra o ILS com o GRASP, usando a construção parcial do GRASP como perturbação. // 
+
+
+#define EXECUTAR_ILS_GRASP(VND_FUNC, SMART_LOGIC) \
+    float *s_best = criavetorfloat(npilhas); \
+    int **nvis_best = criamatriz(npilhas, ncam); \
+    struct alocarga *carga_best = criavetoralocarga(npilhas); \
+    \
+    long long fo_melhor = favaliacao(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem); \
+    \
+    atualizavetorfloat(s_best, s, npilhas); \
+    atualizamatrizint(nvis_best, nvisitas, npilhas, ncam); \
+    atualizamelhorsolucaoalocarga(carga_best, carga, npilhas); \
+    \
+    float alpha_p = 0.2; \
+    int falhas = 0; \
+    \
+    for (int iter = 0; iter < 100; iter++) { \
+        /* PERTURBAÇÃO: Reconstrução Parcial apenas do Minério */ \
+        constroisolucaoGRASP_Parcial(s, carga, capcam, compatibilidade, nvisitas, nviagem, npilhas, ncam, nvar, teores, rec, npminerio, QTDisp, cargamax, cargamin, ncarga, prodrec, remrec, alpha_p, true); \
+        \
+        /* BUSCA LOCAL */ \
+        VND_FUNC(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem); \
+        \
+        long long fo_nova = favaliacao(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem); \
+        \
+        if (fo_nova < fo_melhor) { \
+            fo_melhor = fo_nova; \
+            atualizavetorfloat(s_best, s, npilhas); \
+            atualizamatrizint(nvis_best, nvisitas, npilhas, ncam); \
+            atualizamelhorsolucaoalocarga(carga_best, carga, npilhas); \
+            alpha_p = 0.2; falhas = 0; \
+        } else { \
+            falhas++; \
+            bool deve_aumentar = (SMART_LOGIC) ? (falhas % 10 == 0) : true; \
+            if (deve_aumentar) { \
+                alpha_p += 0.2; \
+                if (alpha_p > 1.01) alpha_p = 0.2; \
+            } \
+            atualizavetorfloat(s, s_best, npilhas); \
+            atualizamatrizint(nvisitas, nvis_best, npilhas, ncam); \
+            atualizamelhorsolucaoalocarga(carga, carga_best, npilhas); \
+        } \
+    } \
+    liberavetorfloat(s_best); liberamatriz(nvis_best, npilhas); free(carga_best);
+
+void ILS_Grasp_Normal(float *s, float *li, float *ls, float *rec, int *penalidadesup, int *penalidadeinf, int *penalidadeteorinv, int npilhas, int nvar, float **teores, float prodmax, float prodmin, float prodrec, int npminerio, float remrec, float remmax, float remmin, int **nvisitas, struct alocarga *carga, float *capcam, int **compatibilidade, float **tciclo, float tcontrole, int ncam, float *cargamax, float *cargamin, int *nummax, int wfproducaoinv, int wfproducaoqualp, int wfproducaoqualn, int wfteor, int wfrem, int wfremqualp, int wfremqualn, int wfprodutcaminv, int wfprodutcamqualp, int wfprodutcamqualn, int wfprodcargainv, int wfprodcargaqual, int wfproducaocamtotal, int wfproducaocarga, int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist, float *dispmec, int **nviagem, float *QTDisp, int ncarga) {
+    EXECUTAR_ILS_GRASP(VND, false)
+}
+
+void Smart_ILS_Grasp_Aleatorio(float *s, float *li, float *ls, float *rec, int *penalidadesup, int *penalidadeinf, int *penalidadeteorinv, int npilhas, int nvar, float **teores, float prodmax, float prodmin, float prodrec, int npminerio, float remrec, float remmax, float remmin, int **nvisitas, struct alocarga *carga, float *capcam, int **compatibilidade, float **tciclo, float tcontrole, int ncam, float *cargamax, float *cargamin, int *nummax, int wfproducaoinv, int wfproducaoqualp, int wfproducaoqualn, int wfteor, int wfrem, int wfremqualp, int wfremqualn, int wfprodutcaminv, int wfprodutcamqualp, int wfprodutcamqualn, int wfprodcargainv, int wfprodcargaqual, int wfproducaocamtotal, int wfproducaocarga, int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist, float *dispmec, int **nviagem, float *QTDisp, int ncarga) {
+    EXECUTAR_ILS_GRASP(VND_Aleatorio, true)
 }

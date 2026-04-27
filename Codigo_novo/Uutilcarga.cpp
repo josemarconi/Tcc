@@ -914,3 +914,134 @@ void constroisolucaoGRASP(float *s, struct alocarga *carga, float *capcam, int *
     free(sorted_loaders); 
     free(sorted_trucks);
 }
+
+void constroisolucaoGRASP_Parcial(float *s, struct alocarga *carga, float *capcam, int **compatibilidade, int **nvisitas, int **nviagem, int npilhas, int ncam, int nvar, float **teores, float *rec, int npminerio, float *QTDisp, float *cargamax, float *cargamin, int ncarga, float prodrec, float remrec, float alpha, bool reconstruir_apenas_minerio)
+{
+    bool *loader_used = (bool*)calloc(ncarga, sizeof(bool));
+    int *sorted_loaders = (int*)malloc(ncarga * sizeof(int));
+    int *sorted_trucks = (int*)malloc(ncam * sizeof(int));
+    
+    // Se estivermos reconstruindo apenas minério, precisamos marcar as carregadeiras do estéril como usadas
+    if(reconstruir_apenas_minerio) {
+        for(int i = npminerio; i < npilhas; i++) {
+            if(carga[i].equip != -1) loader_used[carga[i].equip] = true;
+        }
+    } else {
+        iniciavetorfloat(s, npilhas, 0.0);
+        iniciamatrizint(nvisitas, npilhas, ncam, 0);
+    }
+
+    // --- Ordenações Base ---
+    for(int i=0; i<ncarga; i++){sorted_loaders[i] = i;}
+    for(int i=0; i<ncarga-1; i++) {
+        for(int j=i+1; j<ncarga; j++) {
+            if(cargamax[sorted_loaders[i]] > cargamax[sorted_loaders[j]]) {
+                int temp = sorted_loaders[i]; sorted_loaders[i] = sorted_loaders[j]; sorted_loaders[j] = temp;
+            }
+        }
+    }
+    for(int i=0; i<ncam; i++) {sorted_trucks[i] = i;}
+    for(int i=0; i<ncam-1; i++) {
+        for(int j=i+1; j<ncam; j++) {
+            if(capcam[sorted_trucks[i]] < capcam[sorted_trucks[j]]) {
+                int temp = sorted_trucks[i]; sorted_trucks[i] = sorted_trucks[j]; sorted_trucks[j] = temp;
+            }
+        }
+    }
+
+    // --- BLOCO ESTÉRIL (SÓ EXECUTA SE NÃO FOR RECONSTRUÇÃO PARCIAL) ---
+    if (!reconstruir_apenas_minerio) {
+        float prod_esteril_atual = 0.0;
+        float meta_esteril = prodrec * remrec;
+        int num_est = npilhas - npminerio;
+        if (num_est > 0) {
+            int *est_faces = (int*)malloc(num_est * sizeof(int));
+            for(int i=0; i<num_est; i++){est_faces[i] = npminerio + i;}
+            // Ordenação por massa decrescente
+            for(int i=0; i<num_est-1; i++) {
+                for(int j=i+1; j<num_est; j++) {
+                    if(QTDisp[est_faces[i]] < QTDisp[est_faces[j]]) {
+                        int temp = est_faces[i]; est_faces[i] = est_faces[j]; est_faces[j] = temp;
+                    }
+                }
+            }
+            int l_idx = 0; 
+            for(int i=0; i<num_est; i++) {
+                if (prod_esteril_atual >= meta_esteril) break;
+                int r_lrc = (int)ceil((num_est - i) * alpha); if (r_lrc < 1) r_lrc = 1;
+                int f_idx = i + (rand() % r_lrc);
+                int f = est_faces[f_idx];
+                int temp_f = est_faces[i]; est_faces[i] = est_faces[f_idx]; est_faces[f_idx] = temp_f;
+
+                while(l_idx < ncarga && loader_used[sorted_loaders[l_idx]]) {l_idx++;}
+                if(l_idx < ncarga) {
+                    int l_id = sorted_loaders[l_idx];
+                    carga[f].equip = l_id; loader_used[l_id] = true;
+                    for(int j=0; j<ncam; j++) {
+                        int c = sorted_trucks[j];
+                        if(compatibilidade[c][l_id] == 1) {
+                            float falta = meta_esteril - prod_esteril_atual;
+                            if (falta <= 0) break;
+                            int v = nviagem[f][c];
+                            if(s[f] + v*capcam[c] > QTDisp[f]) v = (int)((QTDisp[f] - s[f]) / capcam[c]);
+                            if(v * capcam[c] > falta) v = (int)ceil(falta / capcam[c]);
+                            nvisitas[f][c] = v; s[f] += v * capcam[c]; prod_esteril_atual += v * capcam[c];
+                        }
+                    }
+                }
+            }
+            free(est_faces);
+        }
+    }
+
+    // --- BLOCO MINÉRIO (SEMPRE RECONSTRÓI) ---
+    float prod_min_atual = 0.0;
+    // Se for parcial, precisamos resetar apenas as frentes de minério
+    for(int i=0; i < npminerio; i++) {
+        s[i] = 0;
+        for(int j=0; j < ncam; j++) nvisitas[i][j] = 0;
+        carga[i].equip = -1;
+    }
+
+    int *ore_faces = (int*)malloc(npminerio * sizeof(int));
+    float *deviations = (float*)malloc(npminerio * sizeof(float));
+    for(int i=0; i<npminerio; i++) {
+        ore_faces[i] = i; deviations[i] = 0;
+        for(int j=0; j<nvar; j++){ deviations[i] += absfloat(teores[i][j] - rec[j]); }
+    }
+    // Sort por menor desvio
+    for(int i=0; i<npminerio-1; i++) {
+        for(int j=i+1; j<npminerio; j++) {
+            if(deviations[i] > deviations[j]) {
+                float td = deviations[i]; deviations[i] = deviations[j]; deviations[j] = td;
+                int tf = ore_faces[i]; ore_faces[i] = ore_faces[j]; ore_faces[j] = tf;
+            }
+        }
+    }
+    int l_idx_ore = ncarga - 1;
+    for(int i=0; i<npminerio; i++) {
+        if (prod_min_atual >= prodrec) break;
+        int r_lrc = (int)ceil((npminerio - i) * alpha); if (r_lrc < 1) r_lrc = 1;
+        int f_idx = i + (rand() % r_lrc);
+        int f = ore_faces[f_idx];
+        int temp_f = ore_faces[i]; ore_faces[i] = ore_faces[f_idx]; ore_faces[f_idx] = temp_f;
+
+        while(l_idx_ore >= 0 && loader_used[sorted_loaders[l_idx_ore]]) {l_idx_ore--;}
+        if(l_idx_ore >= 0) {
+            int l_id = sorted_loaders[l_idx_ore];
+            carga[f].equip = l_id; loader_used[l_id] = true;
+            for(int j=ncam-1; j>=0; j--) {
+                int c = sorted_trucks[j];
+                if(compatibilidade[c][l_id] == 1) {
+                    float falta = prodrec - prod_min_atual;
+                    if (falta <= 0) break;
+                    int v = nviagem[f][c];
+                    if(s[f] + v*capcam[c] > QTDisp[f]) v = (int)((QTDisp[f] - s[f]) / capcam[c]);
+                    if(v * capcam[c] > falta) v = (int)ceil(falta / capcam[c]);
+                    nvisitas[f][c] = v; s[f] += v * capcam[c]; prod_min_atual += v * capcam[c];
+                }
+            }
+        }
+    }
+    free(ore_faces); free(deviations); free(loader_used); free(sorted_loaders); free(sorted_trucks);
+}
