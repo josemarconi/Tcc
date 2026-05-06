@@ -161,7 +161,7 @@ int main()
     int wfdist = 1;
     float alpha = 0.2;
     // --- NOVA ADIÇÃO: Inicialização do Relatório Geral ---
-    char arq_resumo_geral[] = "Relatorios/GRASP_VND_NORMAL/Resumo_Geral_Minas_GRASP_VND(Normal)7.csv";
+    char arq_resumo_geral[] = "Relatorios/GRASP_VND_ALEATORIO/Resumo_Geral_Minas_GRASP_VND(Aleatorio)9.csv";
     FILE *f_resumo = fopen(arq_resumo_geral, "w");
     if (!f_resumo) {
         printf("Erro: Pasta 'Relatorios' nao encontrada.\n");

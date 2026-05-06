@@ -1,7 +1,7 @@
 Relat�rio para a alocacao DINAMICA de caminh�es utilizando o metodo VNS
 
 
-Tempo: 13.434968
+Tempo: 13.839634
 Fo: 111162
 
 
@@ -32,7 +32,7 @@ Equipamentos de Carga
 	 N�    Frente   [Prod Min - Prod Max]   Ritmo de Lavra     Pontuacao   STATUS
 	------------------------------------------------------------------------------
 	  5        6    [   400.0  -  1100.0]       1080.0            29         ok!
-	  0       14    [   100.0  -   800.0]        360.0           629         ok!
+	  0       12    [   100.0  -   800.0]        360.0           629         ok!
 	------------------------------------------------------------------------------
 Par�metros de Controle
 

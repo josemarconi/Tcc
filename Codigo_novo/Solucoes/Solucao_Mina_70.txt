@@ -1,8 +1,8 @@
 Relat�rio para a alocacao DINAMICA de caminh�es utilizando o metodo VNS
 
 
-Tempo: 20.240631
-Fo: 97499
+Tempo: 25.014978
+Fo: 97500
 
 
 Producao de Minerio  2640.00  [  2600.0 -  2600.0 -  3100.0]
@@ -12,12 +12,12 @@ Producao de Esteril   840.00
 Componentes da Funcao de Avaliacao
 
 
-	 Favaliacao         97499
+	 Favaliacao         97500
 	--------------------------
 	 fa_producao        80000
 	 fa_teor            13830
 	 fa_rem                91
-	 fa_produtcam        2401
+	 fa_produtcam        2402
 	 fa_prodcarga        1174
 	 fa_totalcam            3
 	 fa_estatico            0

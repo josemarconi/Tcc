@@ -1,7 +1,7 @@
 Relat�rio para a alocacao DINAMICA de caminh�es utilizando o metodo VNS
 
 
-Tempo: 21.245138
+Tempo: 26.031485
 Fo: 92640
 
 
@@ -35,7 +35,7 @@ Equipamentos de Carga
 	  0        1    [   100.0  -   800.0]        720.0           115         ok!
 	  0        2    [   100.0  -   800.0]        720.0           115         ok!
 	  0        4    [   100.0  -   800.0]        720.0           115         ok!
-	  2       14    [   400.0  -  1100.0]        840.0           372         ok!
+	  2       15    [   400.0  -  1100.0]        840.0           372         ok!
 	------------------------------------------------------------------------------
 Par�metros de Controle
 
