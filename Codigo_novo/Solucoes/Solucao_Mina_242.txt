@@ -1,7 +1,7 @@
 Relat�rio para a alocacao DINAMICA de caminh�es utilizando o metodo VNS
 
 
-Tempo: 62.158115
+Tempo: 61.663387
 Fo: 106067
 
 
