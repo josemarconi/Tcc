@@ -75,7 +75,7 @@ void realizar_perturbacao_inteligente(int **nvisitas, int **nviagem, float *s, f
     int nivel = 1;  /* Força da perturbação */ \
     int falhas = 0; /* Contador para a lógica Smart */ \
     \
-    /* Loop principal do ILS (100 iterações de Perturbação + Busca Local) */ \
+    /* Loop principal do ILS (1000 iterações de Perturbação + Busca Local) */ \
     for (int iter = 0; iter < 100; iter++) { \
         \
         /* FASE A: Perturbação - Dá o "empurrão" na solução atual */ \
@@ -152,7 +152,6 @@ void Smart_ILS_Aleatorio(float *s, float *li, float *ls, float *rec, int *penali
 
 // ILS - GRASP: Variante que integra o ILS com o GRASP, usando a construção parcial do GRASP como perturbação. // 
 
-
 #define EXECUTAR_ILS_GRASP(VND_FUNC, SMART_LOGIC) \
     float *s_best = criavetorfloat(npilhas); \
     int **nvis_best = criamatriz(npilhas, ncam); \
@@ -198,6 +197,14 @@ void Smart_ILS_Aleatorio(float *s, float *li, float *ls, float *rec, int *penali
 
 void ILS_Grasp_Normal(float *s, float *li, float *ls, float *rec, int *penalidadesup, int *penalidadeinf, int *penalidadeteorinv, int npilhas, int nvar, float **teores, float prodmax, float prodmin, float prodrec, int npminerio, float remrec, float remmax, float remmin, int **nvisitas, struct alocarga *carga, float *capcam, int **compatibilidade, float **tciclo, float tcontrole, int ncam, float *cargamax, float *cargamin, int *nummax, int wfproducaoinv, int wfproducaoqualp, int wfproducaoqualn, int wfteor, int wfrem, int wfremqualp, int wfremqualn, int wfprodutcaminv, int wfprodutcamqualp, int wfprodutcamqualn, int wfprodcargainv, int wfprodcargaqual, int wfproducaocamtotal, int wfproducaocarga, int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist, float *dispmec, int **nviagem, float *QTDisp, int ncarga) {
     EXECUTAR_ILS_GRASP(VND, false)
+}
+
+void ILS_Grasp_Aleatorio(float *s, float *li, float *ls, float *rec, int *penalidadesup, int *penalidadeinf, int *penalidadeteorinv, int npilhas, int nvar, float **teores, float prodmax, float prodmin, float prodrec, int npminerio, float remrec, float remmax, float remmin, int **nvisitas, struct alocarga *carga, float *capcam, int **compatibilidade, float **tciclo, float tcontrole, int ncam, float *cargamax, float *cargamin, int *nummax, int wfproducaoinv, int wfproducaoqualp, int wfproducaoqualn, int wfteor, int wfrem, int wfremqualp, int wfremqualn, int wfprodutcaminv, int wfprodutcamqualp, int wfprodutcamqualn, int wfprodcargainv, int wfprodcargaqual, int wfproducaocamtotal, int wfproducaocarga, int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist ,float *dispmec,int **nviagem,float *QTDisp,int ncarga) {
+    EXECUTAR_ILS_GRASP(VND_Aleatorio,false)
+}
+
+void Smart_ILS_Grasp_Normal(float *s, float *li, float *ls, float *rec, int *penalidadesup, int *penalidadeinf, int *penalidadeteorinv, int npilhas, int nvar, float **teores, float prodmax, float prodmin, float prodrec, int npminerio, float remrec, float remmax, float remmin, int **nvisitas, struct alocarga *carga, float *capcam, int **compatibilidade, float **tciclo, float tcontrole, int ncam, float *cargamax, float *cargamin, int *nummax, int wfproducaoinv, int wfproducaoqualp, int wfproducaoqualn, int wfteor, int wfrem, int wfremqualp, int wfremqualn, int wfprodutcaminv, int wfprodutcamqualp, int wfprodutcamqualn, int wfprodcargainv, int wfprodcargaqual, int wfproducaocamtotal, int wfproducaocarga,int wfnumcamutilizados,int wfestatico,int wfnumcam,int wfdist,float *dispmec,int **nviagem,float *QTDisp,int ncarga) {
+    EXECUTAR_ILS_GRASP(VND,true)
 }
 
 void Smart_ILS_Grasp_Aleatorio(float *s, float *li, float *ls, float *rec, int *penalidadesup, int *penalidadeinf, int *penalidadeteorinv, int npilhas, int nvar, float **teores, float prodmax, float prodmin, float prodrec, int npminerio, float remrec, float remmax, float remmin, int **nvisitas, struct alocarga *carga, float *capcam, int **compatibilidade, float **tciclo, float tcontrole, int ncam, float *cargamax, float *cargamin, int *nummax, int wfproducaoinv, int wfproducaoqualp, int wfproducaoqualn, int wfteor, int wfrem, int wfremqualp, int wfremqualn, int wfprodutcaminv, int wfprodutcamqualp, int wfprodutcamqualn, int wfprodcargainv, int wfprodcargaqual, int wfproducaocamtotal, int wfproducaocarga, int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist, float *dispmec, int **nviagem, float *QTDisp, int ncarga) {
