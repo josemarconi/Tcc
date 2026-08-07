@@ -23,7 +23,7 @@ void realizar_perturbacao_inteligente(int **nvisitas, int **nviagem, float *s, f
         int f1 = rand() % npilhas;
         int f2 = rand() % npilhas;
         int c1 = rand() % ncam;
-        int c2 = rand() % ncam;
+        int c2 = rand() % ncam;\
 
         switch(mov) {
             case 0: // Altera a quantidade de viagens em uma rota (Leve)
@@ -75,7 +75,7 @@ void realizar_perturbacao_inteligente(int **nvisitas, int **nviagem, float *s, f
     int nivel = 1;  /* Força da perturbação */ \
     int falhas = 0; /* Contador para a lógica Smart */ \
     \
-    /* Loop principal do ILS (1000 iterações de Perturbação + Busca Local) */ \
+    /* Loop principal do ILS (100 iterações de Perturbação + Busca Local) */ \
     for (int iter = 0; iter < 100; iter++) { \
         \
         /* FASE A: Perturbação - Dá o "empurrão" na solução atual */ \

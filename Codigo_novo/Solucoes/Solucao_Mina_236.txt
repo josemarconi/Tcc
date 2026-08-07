@@ -1,25 +1,25 @@
 Relat�rio para a alocacao DINAMICA de caminh�es utilizando o metodo VNS
 
 
-Tempo: 9.754003
-Fo: 104755
+Tempo: 60.864021
+Fo: 16680
 
 
-Producao de Minerio  1080.00  [   900.0 -  1100.0 -  1300.0]
+Producao de Minerio  1098.00  [   900.0 -  1100.0 -  1300.0]
 Producao de Esteril   366.00
-                REM     0.34  [    0.25 -    0.31 -    0.40]
+                REM     0.33  [    0.25 -    0.31 -    0.40]
  
 Componentes da Funcao de Avaliacao
 
 
-	 Favaliacao        104755
+	 Favaliacao         16680
 	--------------------------
-	 fa_producao       100000
-	 fa_teor             3124
-	 fa_rem               321
-	 fa_produtcam         659
-	 fa_prodcarga         649
-	 fa_totalcam            2
+	 fa_producao        10000
+	 fa_teor             3284
+	 fa_rem               260
+	 fa_produtcam         654
+	 fa_prodcarga        2481
+	 fa_totalcam            1
 	 fa_estatico            0
 	 fa_numcamfre           0
 	--------------------------
@@ -31,16 +31,18 @@ Equipamentos de Carga
 
 	 N�    Frente   [Prod Min - Prod Max]   Ritmo de Lavra     Pontuacao   STATUS
 	------------------------------------------------------------------------------
-	  8       25    [   400.0  -  1100.0]       1080.0            29         ok!
-	  0       41    [   100.0  -   800.0]        366.0           620         ok!
+	  0        4    [   100.0  -   800.0]        244.0           795         ok!
+	  0       21    [   100.0  -   800.0]        366.0           620         ok!
+	  0       30    [   100.0  -   800.0]        488.0           446         ok!
+	  0       32    [   100.0  -   800.0]        366.0           620         ok!
 	------------------------------------------------------------------------------
 Par�metros de Controle
 
 
 	 Parametro [  Minimo -   Meta  -  Maximo]   Encontrado    Diferen�a    Pontuacao  STATUS
 	-----------------------------------------------------------------------------------------
-	   0       [ 45.5200 - 47.9100 - 50.3200]    44.5900      -3.3200         40        INV
-	   1       [  0.3600 -  0.4700 -  0.5400]     0.2900      -0.1800       1104        INV
-	   2       [  0.1900 -  0.2600 -  0.2900]     0.1800      -0.0800       1980        INV
+	   0       [ 45.5200 - 47.9100 - 50.3200]    46.5089      -1.4011        200        ok!
+	   1       [  0.3600 -  0.4700 -  0.5400]     0.5467       0.0767       1104        INV
+	   2       [  0.1900 -  0.2600 -  0.2900]     0.2967       0.0367       1980        INV
 	   3       [  0.0200 -  0.0400 -  0.0400]     0.0400       0.0000          0        ok!
 	-----------------------------------------------------------------------------------------

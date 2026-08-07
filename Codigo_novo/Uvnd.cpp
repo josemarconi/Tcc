@@ -569,8 +569,11 @@ bool VND_Aleatorio(float *s, float *li, float *ls, float *rec, int *penalidadesu
     int falhas[] = {0, 0, 0, 0, 0, 0, 0, 0};
 
     bool encontrou_no_ciclo = true;
+    
+    int max_iter_vnd = 1000; // Limite de segurança
+    int iter_count = 0;
 
-    while (encontrou_no_ciclo) {
+    while (encontrou_no_ciclo && iter_count < max_iter_vnd) {
         encontrou_no_ciclo = false;
 
         // --- EMBARALHAMENTO BASEADO EM PESOS ---
@@ -628,6 +631,7 @@ bool VND_Aleatorio(float *s, float *li, float *ls, float *rec, int *penalidadesu
                 }
             }
         }
+        iter_count++;
     }
 
     return melhoria_global;

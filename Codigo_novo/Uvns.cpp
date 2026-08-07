@@ -10,6 +10,8 @@
 #include "Hsa.h"
 #include <string.h>
 
+using namespace std;
+
 void VNS(float *s, float *li, float *ls, float *rec, int *penalidadesup, int *penalidadeinf, int *penalidadeteorinv,
          int npilhas, int nvar, float **teores, float prodmax, float prodmin, float prodrec, int npminerio,
          float remrec, float remmax, float remmin, int **nvisitas, struct alocarga *carga, float *capcam,
@@ -17,7 +19,7 @@ void VNS(float *s, float *li, float *ls, float *rec, int *penalidadesup, int *pe
          int *nummax, int wfproducaoinv, int wfproducaoqualp, int wfproducaoqualn, int wfteor, int wfrem,
          int wfremqualp, int wfremqualn, int wfprodutcaminv, int wfprodutcamqualp, int wfprodutcamqualn,
          int wfprodcargainv, int wfprodcargaqual, int wfproducaocamtotal, int wfproducaocarga,
-         int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist, float *dispmec, int **nviagem)
+         int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist, float *dispmec, int **nviagem, int forma)
 {
     
     int max_iter_vns = 100; 
@@ -62,17 +64,30 @@ void VNS(float *s, float *li, float *ls, float *rec, int *penalidadesup, int *pe
             }
 
             // --- 2. BUSCA LOCAL (VND exaustivo) ---
-            /*VND(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax,
-                prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole,
-                ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn,
-                wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga,
-                wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem);*/
 
-            VND_Aleatorio(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax,
-                prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole,
-                ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn,
-                wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga,
-                wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem);
+            if(forma == 1) {
+                VND(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax,
+                    prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole,
+                    ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn,
+                    wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga,
+                    wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem);
+            }
+            else if (forma == 2) {
+                VND_Aleatorio(s, li, ls, rec,
+                            penalidadesup, penalidadeinf, penalidadeteorinv,
+                            npilhas, nvar, teores,
+                            prodmax, prodmin, prodrec,
+                            npminerio,
+                            remrec, remmax, remmin,
+                            nvisitas, carga, capcam,
+                            compatibilidade, tciclo,tcontrole,
+                            ncam,cargamax,cargamin,nummax,
+                            wfproducaoinv,wfproducaoqualp,wfproducaoqualn,wfteor,wfrem,wfremqualp,wfremqualn,wfprodutcaminv,wfprodutcamqualp,wfprodutcamqualn,wfprodcargainv,wfprodcargaqual,wfproducaocamtotal,wfproducaocarga,wfnumcamutilizados,wfestatico,wfnumcam,wfdist,
+                            dispmec,nviagem);
+            }
+            else {
+                return;
+            }
 
             long long fo_nova = favaliacao(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax,
                                      prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole,
