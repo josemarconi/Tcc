@@ -1,4 +1,4 @@
-# I_C_Mais_Atualizado
+# Final Course Project: A Metaheuristic Approach and Benchmarking for the Mine Planning Problem.
 
 Code and data for the research project (Iniciacao Cientifica / TCC) on the dynamic allocation of trucks and loaders in open-pit mines. The computational goal is to build and compare trip plans and front operation plans for 290 synthetic instances, according to an evaluation function based on penalties for production, quality and the waste/ore ratio (REM, from the Portuguese "relacao esteril/minerio"). The value of the evaluation function is not, by itself, a measure of financial cost, nor a certification of operational feasibility.
 
