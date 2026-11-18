@@ -136,7 +136,7 @@ The project paths are relative. Each step must be run from the indicated folder,
 ### 5.1 Prepare the data
 
 ```bash
-cd D:/Faculdade_8/I_C_Mais_Atualizado/dados
+/dados
 jupyter notebook IC_arquivos.ipynb
 ```
 
@@ -145,7 +145,7 @@ In Jupyter, run the cells in order (`Restart & Run All`). At the end, `dados/Min
 ### 5.2 Build and run the experiment
 
 ```bash
-cd D:/Faculdade_8/I_C_Mais_Atualizado/src
+/src
 make clean        # removes the objects and executable that came with the repository (they are Linux binaries)
 make              # builds the program
 ./exec.sh         # creates the output folders and runs the full experiment
