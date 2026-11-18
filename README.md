@@ -157,13 +157,3 @@ The configured experiment goes through 17,400 combinations and may take many hou
 
 Open `src/Tratamento_Resultados/tratamentos.ipynb` from that folder and run the cells in order. The notebook reads the test files in `src/Relatorios_Finais/` and writes, in each method folder, a consolidated CSV with one row per mine. In the current copy, each consolidation covers eight tests. Details in [`src/README.md`](src/README.md), section 7.
 
----
-
-## 6. Verification performed
-
-Two checks were performed, described in detail in the READMEs of each folder:
-
-1. **Compatibility between `dados/` and `src/`**. The notebook and the C++ code agree on the file names, the data format, the number of fronts, trucks and loaders, and the capacities. There are divergences in the production values (`prod_N.DAT`), which affect the value used as the production target. They are described in [`dados/README.md`](dados/README.md), section 5, and summarized in section 7 below.
-
-2. **English comments in the code**. English comments were added to all code files in `src/` (C++, headers, Makefile, `exec.sh`, calibration and the processing notebook) and to the code cells of the `dados/` notebook. The original Portuguese comments were kept. The change did not alter the program: the compiled objects before and after are byte-identical, and the code cells of the notebooks have the same abstract syntax tree (AST) before and after.
-
