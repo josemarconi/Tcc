@@ -167,15 +167,3 @@ Two checks were performed, described in detail in the READMEs of each folder:
 
 2. **English comments in the code**. English comments were added to all code files in `src/` (C++, headers, Makefile, `exec.sh`, calibration and the processing notebook) and to the code cells of the `dados/` notebook. The original Portuguese comments were kept. The change did not alter the program: the compiled objects before and after are byte-identical, and the code cells of the notebooks have the same abstract syntax tree (AST) before and after.
 
----
-
-## 7. Divergences between data and code (summary)
-
-The divergences below were verified in the code. They were not corrected, because changing any of them alters the results of the experiment. The decision belongs to the author of the project. The full description of each item is in [`dados/README.md`](dados/README.md), section 5.2, and in [`src/README.md`](src/README.md), section 8.
-
-1. **Order of the production values in `prod_N.DAT`**. For discharge 1/1, the notebook writes the target before the minimum, but the C++ code reads the first value as the minimum. The report `src/Solucoes/Solucao_Mina_1.txt` shows `[1600 - 2600 - 3100]`, that is, the target 1600 appears as the minimum.
-2. **Target value for mines above 24**. The notebook writes 2600 for mines with a number greater than 24, which contradicts the comment saying the target was changed to 1600.
-3. **Discharge 1/3**. The notebook writes one line per crusher, but the C++ code reads only the first. The target used is that of `BRIT_0` (900/1100/1300 t/h), not the total of the three (2700/3300/3900 t/h).
-4. **Fixed REM**. The notebook uses 0.25/0.31/0.4 for all mines, without reading `teores_producao.csv`.
-5. **Run script**. `src/exec.sh` tests for the existence of `./executo`, but the executable is called `./exec`. Therefore `make` runs on every call.
-6. **Calibration**. The `target-runner` in `src/Calibracao_Ag/` refers to the old folder `Codigo_novo`, and `exec_irace` must be built manually. The `--pop` flag in the parameter file is not recognized by the driver.
