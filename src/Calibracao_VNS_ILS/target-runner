@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# irace passes: configuration id, instance id, seed, instance, then the parameters.
+# Capture the arguments supplied by iRace
+# Save the seed (third argument).
+SEED=$3
+# Save the instance (fourth argument), which is the mine number.
+INSTANCE=$4
+
+# Discard the first four positional arguments; the remaining ones are the parameter flags.
+# Remove the 4 fixed arguments so that only the flags (--algoritmo, --iteracoes, --nivel, --k, --alpha) remain
+shift 4
+PARAMS=$*
+
+# Directory of the parent of this script, i.e. src/, where exec_irace is located.
+# Identify the parent directory (the root where exec_irace is located)
+DIR_CODIGO="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Run from src/ so that the relative paths to ../dados/ resolve correctly.
+# Change into the root folder so that the relative paths used by the C++ program stay correct
+cd "$DIR_CODIGO" || exit 1
+
+# Execute the C++ driver for this mine and seed, and capture the objective value it prints.
+# Run exec_irace with the instance, the seed and the parameters, and capture the cost
+COST=$(./exec_irace --instance "$INSTANCE" --seed "$SEED" $PARAMS)
+
+# irace reads the cost from standard output.
+# Return only the numeric cost to iRace
+echo "$COST"

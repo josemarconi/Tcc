@@ -1,0 +1,14 @@
+,,,,,,,,
+,,,,,,,,
+,Destinos,1/3,, BRIT_0, BRIT_1, BRIT_2,Total,
+,,,Minima,900,900,900,2700,ton / hora
+,,,Meta,1100,1100,1100,3300,ton / hora
+,,,Máxima,1300,1300,1300,3900,ton / hora
+,Relação Estéril/Minério,,REM,,,,"0,25",
+,,,,,,,,
+,,,,,,,,
+,,,, BRIT_0,,,,
+,Destinos,1/1,Minimo,2600,ton / hora,,,
+,,,Meta,2600,ton / hora,,,
+,,,Máximo,3100,ton / hora,,,
+,Relação Estéril/Minério,,REM,"0,31",,,,

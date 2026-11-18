@@ -1,0 +1,47 @@
+Relat�rio para a alocacao DINAMICA de caminh�es utilizando o metodo VNS
+
+
+Tempo: 0.535363
+Fo: 701400
+
+
+Producao de Minerio  1920.00  [  1600.0 -  2600.0 -  3100.0]
+Producao de Esteril   600.00
+                REM     0.31  [    0.25 -    0.31 -    0.40]
+ 
+Componentes da Funcao de Avaliacao
+
+
+	 Favaliacao        701400
+	--------------------------
+	 fa_producao       680000
+	 fa_teor            19807
+	 fa_rem                28
+	 fa_produtcam        1155
+	 fa_prodcarga         408
+	 fa_totalcam            2
+	 fa_estatico            0
+	 fa_numcamfre           0
+	--------------------------
+
+
+
+Equipamentos de Carga
+
+
+	 N�    Frente   [Prod Min - Prod Max]   Ritmo de Lavra     Pontuacao   STATUS
+	------------------------------------------------------------------------------
+	  2        0    [   400.0  -  1100.0]       1080.0            29         ok!
+	  1        2    [   250.0  -   900.0]        840.0            93         ok!
+	  0        3    [   100.0  -   800.0]        600.0           286         ok!
+	------------------------------------------------------------------------------
+Par�metros de Controle
+
+
+	 Parametro [  Minimo -   Meta  -  Maximo]   Encontrado    Diferen�a    Pontuacao  STATUS
+	-----------------------------------------------------------------------------------------
+	   0       [ 57.0000 - 58.0000 - 59.0000]    53.0833      -4.9167        245        INV
+	   1       [ 12.0000 - 13.0000 - 14.0000]    20.2526       7.2526        392        INV
+	   2       [  1.0000 -  1.0000 -  2.0000]     1.0130       0.0130        990        ok!
+	   3       [  0.0300 -  0.0300 -  0.0400]     0.0480       0.0180      18180        INV
+	-----------------------------------------------------------------------------------------
