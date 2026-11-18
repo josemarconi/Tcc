@@ -179,17 +179,3 @@ The divergences below were verified in the code. They were not corrected, becaus
 4. **Fixed REM**. The notebook uses 0.25/0.31/0.4 for all mines, without reading `teores_producao.csv`.
 5. **Run script**. `src/exec.sh` tests for the existence of `./executo`, but the executable is called `./exec`. Therefore `make` runs on every call.
 6. **Calibration**. The `target-runner` in `src/Calibracao_Ag/` refers to the old folder `Codigo_novo`, and `exec_irace` must be built manually. The `--pop` flag in the parameter file is not recognized by the driver.
-
----
-
-## 8. Git repository status
-
-The git repository still records the previous organization of the project (folders `Codigo_novo/`, `codigo_gerar_arquivos/`, `codigo_H_MH/` and `referencias/`). In the current working tree, the folders `src/` and `dados/` are not under version control, and the old tracked files appear as deleted. This README does not change the git history. Before a commit, it must be decided whether the new organization should be versioned.
-
----
-
-## 9. Conventions
-
-- Variable, function and file names are in Portuguese (for example `constroisolucaoGRASP`, `prod_N.DAT`).
-- New comments in the code are in English; the original Portuguese comments were kept.
-- The READMEs are in English.
