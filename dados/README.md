@@ -247,7 +247,7 @@ The file is generated, but the C++ code reads only `capcam_est_N.DAT`.
 1. Open a terminal **inside the `dados/` folder**:
 
    ```bash
-   cd D:/Faculdade_8/I_C_Mais_Atualizado/dados
+   /dados
    jupyter notebook IC_arquivos.ipynb
    ```
 
