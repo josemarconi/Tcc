@@ -199,7 +199,7 @@ Number of files: 290 mines x 12 files = 3,480 `.DAT` files.
 
 The check compared what the notebook writes with what the `src/` folder reads. The results are divided into points of agreement and divergences.
 
-### 5.1 Points of agreement
+### Points of agreement
 
 | Item | Status |
 |---|---|
@@ -212,26 +212,6 @@ The check compared what the notebook writes with what the `src/` folder reads. T
 | Fixed capacities (61/64, 120/130, 800/900/1100, 100/250/400) | Consistent with `instancias.txt`. |
 | Reading of `minas.txt` | Consistent. The C++ code extracts the number of ore fronts (`m` in `m/e`) from the line `Mina <id>:`. |
 | Number of mines | Consistent. 290 mines in `minas.txt`, 290 folders in `Minas/`, and the C++ code goes from 1 to 290. |
-
-### 5.2 Divergences
-
-**Divergence 1 (important): order of the fields in `prod_N.DAT`.**
-
-The C++ code reads the second line as `prodmin, prodrec, prodmax`, that is, minimum, target and maximum. For discharge 1/1 the notebook writes `Meta, Minimo, Maximo` (target, minimum, maximum), so the minimum and the target swap places. The file `src/Solucoes/Solucao_Mina_1.txt` confirms the effect: it shows `[1600.0 - 2600.0 - 3100.0]`, that is, the target 1600 was read as the minimum.
-
-In addition, the notebook writes `2600` as the first value for mines above 24 (for example mine 33), while the code comment says the target was changed to 1600 as requested. This means the behavior differs for mines 1 to 24 and for mines above 24. It is not possible to tell from the code which value is intended.
-
-**Divergence 2: discharge 1/3 and ignored lines.**
-
-For discharge 1/3 the notebook writes three production lines (one per crusher). The C++ code reads only the second line, which corresponds to `BRIT_0`. Thus the target used by the program is 900/1100/1300 t/h, while the sum of the three crushers is 2700/3300/3900 t/h. If the intent was to use the total, the C++ code must read the total; if the intent was to use one crusher at a time, the notebook should write only one line.
-
-**Divergence 3: fixed REM.**
-
-The notebook writes `0.25, 0.31, 0.4` for all mines, without reading the REM from `teores_producao.csv`. That file has REM 0.25 for discharge 1/3 and 0.31 for discharge 1/1. The notebook comment says the REM was redefined, so the divergence may be intentional, but it should be confirmed.
-
-**Divergence 4: `capcam_min_N.DAT` is not used.**
-
-The file is generated, but the C++ code reads only `capcam_est_N.DAT`.
 
 ---
 
@@ -247,7 +227,7 @@ The file is generated, but the C++ code reads only `capcam_est_N.DAT`.
 1. Open a terminal **inside the `dados/` folder**:
 
    ```bash
-   cd D:/Faculdade_8/I_C_Mais_Atualizado/dados
+   /dados
    jupyter notebook IC_arquivos.ipynb
    ```
 
