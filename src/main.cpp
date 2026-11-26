@@ -159,8 +159,7 @@ int main()
             int wfproducaocarga = 1, wfnumcamutilizados = 1, wfestatico = 10000;
             int wfnumcam = 10000, wfdist = 1;
             
-            // Greedy randomisation parameter alpha for the GRASP construction: 0.20 for the genetic algorithm, 0.3741 for the VNS methods.
-            float alpha = (metodo == 3) ? 0.20 : 0.3741;
+            const float alpha_vns = 0.3741f;
 
             // Choose the output CSV of this method.
             switch (metodo)
@@ -230,7 +229,7 @@ int main()
                 int **nviagem = criamatriz(npilhas, ncam), *nummax = criavetor(npilhas);
                 // compatibilidade[truck][loader]: compatibility flags; nvisitas[pile][truck]: visit counts of the solution.
                 int **compatibilidade = criamatriz(ncam, ncarga), **nvisitas = criamatriz(npilhas, ncam);
-                // capcam: capacity per truck; dispmec: per-truck array, zeroed below.
+                // capcam: capacity per truck; dispmec: available fraction of the horizon per truck.
                 float *capcam = criavetorfloat(ncam), *dispmec = criavetorfloat(ncam);
                 // REM and production limits (min, rec, max), filled from prod_<id>.DAT.
                 float remrec, remmax, remmin, prodmax, prodmin, prodrec;
@@ -240,10 +239,10 @@ int main()
                 // content: "pile,variable,grade" -> teores[pile][variable]
                 // cmin: "variable,value" -> li (lower band limit); cmax: "variable,value" -> ls (its line count gives nvar)
                 // crec: "variable,value" -> rec (target value per variable)
-                // cargamin: "loader,value" -> cargamin; cargamax: "loader,value" -> cargamax (its line count gives ncarga)
+                // cargamin and cargamax: "loader,production in t/h" (cargamax line count gives ncarga).
                 // capcam_est: "truck,value" -> capcam (its line count gives ncam)
                 // comp: "truck,loader,flag" -> compatibilidade (1 = compatible)
-                // prod: REM min,rec,max on line 1 and production min,rec,max on line 2
+                // prod: REM min,rec,max on line 1 and production min,rec,max in t/h on line 2.
                 // tciclo: "truck,pile,ignored,cycle time" -> tciclo[pile][truck] (see ler_tciclo_matriz)
                 sprintf(buffer, "%sMina_%d/quant_%d.DAT", path_base, id_mina, id_mina); learqvetorfloat(buffer, QTDisp);
                 sprintf(buffer, "%sMina_%d/content_%d.DAT", path_base, id_mina, id_mina); learqmatrizfloat(buffer, teores);
@@ -257,31 +256,19 @@ int main()
                 sprintf(buffer, "%sMina_%d/prod_%d.DAT", path_base, id_mina, id_mina); ler_arquivo_producao(buffer, &remmin, &remrec, &remmax, &prodmin, &prodrec, &prodmax);
                 sprintf(buffer, "%sMina_%d/tciclo_%d.DAT", path_base, id_mina, id_mina); ler_tciclo_matriz(buffer, tciclo, npilhas, ncam);
 
-                // Time horizon (360) used to compute the maximum number of trips per truck.
-                float tcontrole = 360.0;
-                // For each pile and truck the maximum number of trips is floor(horizon / cycle time).
-                for (int i = 0; i < npilhas; i++) {
-                    int cont = 0;
-                    for (int j_cam = 0; j_cam < ncam; j_cam++) {
-                        // Only cycle times above 0.01 count as valid; other pairs get 0 trips.
-                        if (tciclo[i][j_cam] > 0.01) {
-                            nviagem[i][j_cam] = (int)floor(tcontrole / tciclo[i][j_cam]);
-                            if (nviagem[i][j_cam] > 0) cont++;
-                        } else nviagem[i][j_cam] = 0;
-                    }
-                    // Number of trucks with at least one trip for this pile.
-                    nummax[i] = cont;
-                }
+                // Time horizon and mechanical availability determine the trip limits.
+                const float tcontrole = horizonte_planejamento_minutos;
+                iniciavetorfloat(dispmec, ncam, disponibilidade_mecanica_padrao);
+                carreganviagem(npilhas, ncam, nviagem, nummax, tcontrole, tciclo, dispmec);
 
                 // Seed perfectly diversified per run, mine and method
                 // Seed the C random generator from run, mine and method, so every combination gets its own seed.
                 srand(numero_da_execucao * 997 + id_mina * 31 + metodo * 101);
 
-                // Reset the solution, the visit counts, the loader assignment (initial values 0 and true, see Hutilcarga.h) and the per-truck arrays.
+                // Reset the solution, visit counts and loader assignments.
                 iniciavetorfloat(s, npilhas, 0.0);
                 iniciamatrizint(nvisitas, npilhas, ncam, 0);
                 iniciavetoralocarga(carga, npilhas, 0, true);
-                iniciavetorfloat(dispmec, ncam, 0.0);
 
                 // Penalty weights per quality variable: the narrower the tolerance band (ls - li), the larger the penalty.
                 for (int j_var = 0; j_var < nvar; j_var++) {
@@ -298,10 +285,14 @@ int main()
                 // Start the timer; it covers the construction and the improvement phase only, not the final evaluation.
                 auto start = chrono::high_resolution_clock::now();
 
-                // Phase 1: greedy randomised construction (GRASP) builds the initial solution s, using alpha.
-                constroisolucaoGRASP(s, carga, capcam, compatibilidade, nvisitas, nviagem,
-                                     npilhas, ncam, nvar, teores, rec, npminerio,
-                                     QTDisp, cargamax, cargamin, ncarga, prodrec, remrec, alpha);
+                // VNS starts from one GRASP solution. The GA builds its own GRASP population.
+                if (metodo != 3) {
+                    constroisolucaoGRASP(s, carga, capcam, compatibilidade, nvisitas, nviagem,
+                                         npilhas, ncam, nvar, teores, rec, npminerio,
+                                         QTDisp, cargamax, cargamin, ncarga, prodrec * horasDoHorizonte(tcontrole), remrec, alpha_vns);
+                    ajustarTempoCaminhoes(nvisitas, carga, compatibilidade, tciclo, tcontrole, npilhas, ncam, dispmec);
+                    carregavetors(s, nvisitas, carga, capcam, compatibilidade, ncam, npilhas);
+                }
 
                 // Iterations reported by the improvement phase; stays 0 if no method branch runs.
                 int iteracoes_reais = 0;
@@ -325,7 +316,7 @@ int main()
                                          wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual,
                                          wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist,
                                          dispmec, nviagem, 2);
-                // Method 3: genetic algorithm improvement. The last argument (2) is passed through unchanged.
+                // Method 3: AG-RLP with the calibrated population size and alpha defaults.
                 } else if (metodo == 3) {
                     iteracoes_reais = AlgoritmoGenetico(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv,
                                                         npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, QTDisp, ncarga,

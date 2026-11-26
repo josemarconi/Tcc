@@ -6,6 +6,10 @@
 // hstruct.h defines struct alocarga (the loader assigned to each front and its operation flag).
 #include "hstruct.h"
 
+// Selected by the AG-RLP calibration in Calibracao_Ag/recalibracao/.
+constexpr int populacao_padrao_ag = 12;
+constexpr float alpha_padrao_ag = 0.05f;
+
 // Structure encapsulating an individual of the population
 // Individual of the population: s = production per front, nvisitas = trips per front and truck,
 // carga = loader and operation status per front, fo = objective value (lower is better).
@@ -42,16 +46,16 @@ void ordenar_populacao(Individuo *pop, int tamanho);
 void crossover_carga_viagens(Individuo p1, Individuo p2, Individuo &filho, int npilhas, int ncam, int ncarga,
                              float *capcam, int **compatibilidade, float **tciclo, float tcontrole, float *dispmec);
 
-// Repair operator: raises the ore production to prodrec by giving free loaders to ore fronts and adding trips.
+// Repairs ore output toward the target prodrec in t/h over the horizon tcontrole in minutes.
 // Updates s, nvisitas and carga of ind.
 void reparar_producao_rapido(Individuo &ind, int npilhas, int npminerio, int ncam, int ncarga, 
                              float *capcam, int **compatibilidade, float **tciclo, float tcontrole, 
                              float *dispmec, int **nviagem, float prodrec, float *QTDisp);
 
-// Light mutation: applies 1 to 3 random moves to ind, chosen according to whether production is below prodrec.
+// Light mutation: chooses random moves based on the ore target in tonnes over the horizon.
 void mutacao_dirigida(Individuo &ind, int npilhas, int ncam, float *capcam, int **compatibilidade, int **nviagem, float prodrec);
 
-// Heavy mutation: destroys 10% to 20% of the ore fronts and rebuilds them with a GRASP-style construction.
+// Heavy mutation: rebuilds a subset of ore fronts toward the target in tonnes over the horizon.
 // ind is passed by value, but its arrays are shared with the caller.
 void mutacao_GRASP_minerio(Individuo ind, int npilhas, int npminerio, int ncam, int ncarga, int nvar, 
                            float *capcam, int **compatibilidade, float **teores, float *rec, 
@@ -70,6 +74,7 @@ int AlgoritmoGenetico(
          int *nummax, int wfproducaoinv, int wfproducaoqualp, int wfproducaoqualn, int wfteor, int wfrem,
          int wfremqualp, int wfremqualn, int wfprodutcaminv, int wfprodutcamqualp, int wfprodutcamqualn,
          int wfprodcargainv, int wfprodcargaqual, int wfproducaocamtotal, int wfproducaocarga,
-         int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist, float *dispmec, int **nviagem, int forma_vnd);
+         int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist, float *dispmec, int **nviagem, int forma_vnd,
+         int tam_pop = populacao_padrao_ag, float alpha = alpha_padrao_ag);
 
 #endif // HAG_H

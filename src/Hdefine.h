@@ -26,4 +26,6 @@
 // estdin: multiplier of the static objective terms (wfestatico * estdin); 0 disables them.
 #define estdin 0 //1 static case, 0 dynamic case
 
- 
+// The synthetic instances have no mechanical downtime data.
+constexpr float disponibilidade_mecanica_padrao = 1.0f;
+constexpr float horizonte_planejamento_minutos = 360.0f;

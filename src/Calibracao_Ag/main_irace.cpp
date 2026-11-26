@@ -131,8 +131,9 @@ int main(int argc, char *argv[])
     // Default values for an individual run or test
     int id_mina = 1;
     unsigned int seed = 12345;
-    int metodo = 11;
-    float alpha = 0.2f;
+    int metodo = 12;
+    int tam_pop = populacao_padrao_ag;
+    float alpha = alpha_padrao_ag;
 
     // Hyperparameters and weights configurable by iRace
     // Weights (wf*) of each objective term with their defaults; the iRace arguments below override them.
@@ -162,7 +163,30 @@ int main(int argc, char *argv[])
         if ((strcmp(argv[i], "--instance") == 0 || strcmp(argv[i], "-i") == 0) && i + 1 < argc) { id_mina = atoi(argv[++i]); }
         else if ((strcmp(argv[i], "--seed") == 0 || strcmp(argv[i], "-s") == 0) && i + 1 < argc) { seed = (unsigned int)stoul(argv[++i]); }
         else if (strcmp(argv[i], "--metodo") == 0 && i + 1 < argc) { metodo = atoi(argv[++i]); }
-        else if (strcmp(argv[i], "--alpha") == 0 && i + 1 < argc) { alpha = atof(argv[++i]); }
+        else if (strcmp(argv[i], "--pop") == 0)
+        {
+            char *fim;
+            errno = 0;
+            const char *valor = i + 1 < argc ? argv[++i] : "";
+            const long populacao = strtol(valor, &fim, 10);
+            if (errno != 0 || fim == valor || *fim != '\0' || populacao < 2 || populacao > INT_MAX / 2)
+            {
+                fprintf(stderr, "--pop requer um inteiro entre 2 e %d\n", INT_MAX / 2);
+                return 2;
+            }
+            tam_pop = static_cast<int>(populacao);
+        }
+        else if (strcmp(argv[i], "--alpha") == 0)
+        {
+            char *fim;
+            const char *valor = i + 1 < argc ? argv[++i] : "";
+            alpha = strtof(valor, &fim);
+            if (fim == valor || *fim != '\0' || !(alpha >= 0.0f && alpha <= 1.0f))
+            {
+                fprintf(stderr, "--alpha requer um numero entre 0 e 1\n");
+                return 2;
+            }
+        }
         else if (strcmp(argv[i], "--wfteor") == 0 && i + 1 < argc) { wfteor = atoi(argv[++i]); }
         else if (strcmp(argv[i], "--wfrem") == 0 && i + 1 < argc) { wfrem = atoi(argv[++i]); }
         else if (strcmp(argv[i], "--wfproducaoinv") == 0 && i + 1 < argc) { wfproducaoinv = atoi(argv[++i]); }
@@ -283,30 +307,15 @@ int main(int argc, char *argv[])
     sprintf(buffer, "%sMina_%d/tciclo_%d.DAT", path_base, id_mina, id_mina);
     ler_tciclo_matriz(buffer, tciclo, npilhas, ncam);
 
-    // Available control time per truck (fixed at 360).
-    float tcontrole = 360.0;
-    // Trips per pile and truck: floor(tcontrole / tciclo) when the cycle time is valid (> 0.01).
-    // nummax[i] counts the trucks with at least one trip to pile i.
-    for (int i_p = 0; i_p < npilhas; i_p++)
-    {
-        int cont = 0;
-        for (int j_c = 0; j_c < ncam; j_c++)
-        {
-            if (tciclo[i_p][j_c] > 0.01)
-            {
-                nviagem[i_p][j_c] = (int)floor(tcontrole / tciclo[i_p][j_c]);
-                if (nviagem[i_p][j_c] > 0) cont++;
-            }
-            else nviagem[i_p][j_c] = 0;
-        }
-        nummax[i_p] = cont;
-    }
+    // Time horizon and mechanical availability determine the trip limits.
+    const float tcontrole = horizonte_planejamento_minutos;
+    iniciavetorfloat(dispmec, ncam, disponibilidade_mecanica_padrao);
+    carreganviagem(npilhas, ncam, nviagem, nummax, tcontrole, tciclo, dispmec);
 
-    // Initial state: zero production and visits, default loader assignment, zero truck utilisation (dispmec).
+    // Initial state: zero production and visits and default loader assignments.
     iniciavetorfloat(s, npilhas, 0.0);
     iniciamatrizint(nvisitas, npilhas, ncam, 0);
     iniciavetoralocarga(carga, npilhas, 0, true);
-    iniciavetorfloat(dispmec, ncam, 0.0);
 
     // Per-variable penalty weights from the grade range (ls - li). A tiny range uses 5% of rec.
     // The inverse weight is 100/(range + 0.001); the upper and lower weights are 10 times that.
@@ -319,22 +328,23 @@ int main(int argc, char *argv[])
         penalidadeinf[j_v] = penalidadeteorinv[j_v] * 10;
     }
 
-    // Construction of the initial solution via GRASP
-    // Initial solution s built by the GRASP constructor; alpha is the --alpha parameter.
-    constroisolucaoGRASP(s, carga, capcam, compatibilidade, nvisitas, nviagem,
-                         npilhas, ncam, nvar, teores, rec, npminerio,
-                         QTDisp, cargamax, cargamin, ncarga, prodrec, remrec, alpha);
-
-    // Run the genetic algorithm (AG) for the selected method
-    // Method 11 runs AlgoritmoGenetico (AG) with forma_vnd = 1, the VND-Referencia variant (fixed neighbourhood order); method 12 runs it with forma_vnd = 2, the VND-RLP variant (random neighbourhood order).
-    // Any other value runs no search, so the GRASP solution is the one evaluated.
-    if (metodo == 11)
+    // Method 11 uses fixed VND and method 12 uses VND-RLP, as in the main experiment.
+    if (metodo == 11 || metodo == 12)
     {
-        AlgoritmoGenetico(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, QTDisp, ncarga, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem, 1);
+        AlgoritmoGenetico(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv,
+                         npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, QTDisp, ncarga,
+                         remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole,
+                         ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn,
+                         wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn,
+                         wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados,
+                         wfestatico, wfnumcam, wfdist, dispmec, nviagem, metodo == 11 ? 1 : 2, tam_pop, alpha);
     }
-    else if (metodo == 12)
+    else
     {
-        AlgoritmoGenetico(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, QTDisp, ncarga, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem, 2);
+        constroisolucaoGRASP(s, carga, capcam, compatibilidade, nvisitas, nviagem,
+                             npilhas, ncam, nvar, teores, rec, npminerio, QTDisp, cargamax, cargamin,
+                             ncarga, prodrec * horasDoHorizonte(tcontrole), remrec, alpha);
+        ajustarTempoCaminhoes(nvisitas, carga, compatibilidade, tciclo, tcontrole, npilhas, ncam, dispmec);
     }
 
     // Final evaluation of the obtained solution

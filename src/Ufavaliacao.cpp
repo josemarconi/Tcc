@@ -1,7 +1,7 @@
 // Objective function (FO) of the mine planning problem. It evaluates one candidate
 // solution and returns a penalty value that the search methods minimise.
 // The terms are: ore and total production, grade of each quality variable, REM,
-// truck utilisation, loader production, and truck-count terms.
+// loader production and truck-count terms. Truck availability is a feasibility limit.
 // #include <vcl.h>
 // #include <condefs.h>
 #include <stdio.h>
@@ -23,7 +23,8 @@
 
 //----------------------------------------------------------------------
 // Evaluates the objective function of solution s and returns the total penalty (lower is better).
-// s[i]: production of pile i; li, ls, rec: lower limit, upper limit and target of each quality variable.
+// s[i]: mass transported from pile i over the horizon, in tonnes.
+// li, ls, rec: lower limit, upper limit and target of each quality variable.
 // teores[i][j]: grade of variable j in pile i; the first npminerio piles are the ore piles.
 // nvisitas, carga, compatibilidade, tciclo describe truck visits, loader assignments and cycle times.
 // The wf* arguments are the weights of the terms; penalidadesup, penalidadeinf, penalidadeteorinv are per-variable weights.
@@ -33,25 +34,26 @@ long long favaliacao(float *s, float *li, float *ls, float *rec, int *penalidade
 
         // Accumulated objective value; each term below adds its penalty to it.
         long long fo = 0;
-        float producaomin = 1.0;
-        float producaototal = 1.0;
-        float rem = 0.0;
-        // Recompute the production of every pile from the truck visits and loader assignments.
+        // Recompute the transported mass of every pile from the current assignments.
         carregavetors(s, nvisitas, carga, capcam, compatibilidade, ncam, npilhas);
-        // Ore production: sum of the first npminerio piles.
-        producaomin = prodtotal(s, npminerio);
-        // Total production: sum over all npilhas piles.
-        producaototal = prodtotal(s, npilhas);
+        const float horas = horasDoHorizonte(tcontrole);
+        if (horas <= 0.0f)
+                return LLONG_MAX;
 
-        // REM (waste-to-ore ratio) = (total - ore) / ore; it is 0 when there is no ore production.
-        if (producaomin == 0)
-                rem = 0.0;
-        else
-                rem = (producaototal - producaomin) / producaomin;
+        for (int c = 0; c < ncam; c++)
+        {
+                const double limite = tcontrole * dispmec[c];
+                if (tempoUtilizadoCaminhao(nvisitas, carga, compatibilidade, tciclo, npilhas, c) > limite)
+                        return LLONG_MAX;
+        }
+        const float massa_minerio = prodtotal(s, npminerio);
+        const float massa_total = prodtotal(s, npilhas);
+        const float rem = massa_minerio != 0.0f ? (massa_total - massa_minerio) / massa_minerio : 0.0f;
 
-        // Penalty for the ore production against the prodmin, prodrec and prodmax limits.
-        fo += fa_producao(producaomin, prodmax, prodmin, prodrec, wfproducaoinv, wfproducaoqualp, wfproducaoqualn);
-        //        printf("fa_producao %8d\n",fa_producao(producaomin,prodmax,prodmin,prodrec,wfproducaoinv,wfproducaoqualp,wfproducaoqualn));
+        // Compare average ore production with the hourly targets.
+        const float producao_minerio_por_hora = massa_minerio / horas;
+        fo += fa_producao(producao_minerio_por_hora, prodmax, prodmin, prodrec,
+                          wfproducaoinv, wfproducaoqualp, wfproducaoqualn);
         // Grade penalty for each quality variable j, using the ore grade (encontrado) against its limits and target.
         for (int j = 0; j < nvar; j++)
         {
@@ -64,18 +66,12 @@ long long favaliacao(float *s, float *li, float *ls, float *rec, int *penalidade
         fo += fa_rem(rem, remmax, remmin, remrec, wfrem, wfremqualp, wfremqualn);
 
         //       printf("fo_rem\n",fa_rem( rem, remmax, remmin, remrec, wfrem, wfremqualp, wfremqualn));
-        // Truck utilisation penalty: for each truck l, produtcam (its utilisation of the control time)
-        // is penalised with the fixed limits 0.0 and 1.0 and with dispmec[l] as the target.
-        for (int l = 0; l < ncam; l++)
-        {
-                fo += fa_produtcam(produtcam(nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, npilhas, l), 1.0, 0.0, dispmec[l], wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn);
-        }
-
-        // Loader production penalty: each pile production s[i] against the minimum and maximum production of its loader.
+        // For each assigned loader, compare average production with its hourly limits.
         for (int i = 0; i < npilhas; i++)
         {
-
-                fo += fa_prodcarga(s[i], cargamax[carga[i].equip], cargamin[carga[i].equip], wfprodcargainv, wfprodcargaqual);
+                if (carga[i].equip != disponivel)
+                        fo += fa_prodcarga(s[i] / horas, cargamax[carga[i].equip], cargamin[carga[i].equip],
+                                          wfprodcargainv, wfprodcargaqual);
         }
         // Dynamic truck term (fa_estatico). It is scaled by estdin, which is 0 in Hdefine.h, so it adds nothing.
         fo += fa_estatico(nvisitas, carga, compatibilidade, npilhas, ncam, wfestatico);
@@ -199,31 +195,6 @@ long long fa_rem(float rem, float remmax, float remmin, float remrec, int wfremi
         // REM above the maximum: penalty with wfreminv.
         if (rem > remmax)
                 return wfreminv * fameta(rem, remmax, remrec, 1000);
-
-        return fo;
-}
-//----------------------------------------------------------------------
-// Utilisation penalty for one truck. An unused truck (0) has no penalty.
-// Weights: wfprodutcaminv outside the limits, wfprodutcamqualn below the target, wfprodutcamqualp above it.
-long long fa_produtcam(float produtcam, float produtcammax, float produtcammin, float produtcamrec, int wfprodutcaminv, int wfprodutcamqualp, int wfprodutcamqualn)
-{
-        long long fo = 0;
-        if (produtcam == 0.0)
-                return 0.0;
-        // Below the minimum: penalty with wfprodutcaminv.
-        if (produtcam < produtcammin)
-                return wfprodutcaminv * fameta(produtcam, produtcammin, produtcamrec, 1000);
-        // Between the minimum and the target: penalty with wfprodutcamqualn.
-        if (produtcam >= produtcammin && produtcam < produtcamrec)
-                return wfprodutcamqualn * fameta(produtcam, produtcammin, produtcamrec, 1000);
-        if (produtcam == produtcamrec)
-                return 0.0;
-        // Above the target up to the maximum: penalty with wfprodutcamqualp.
-        if (produtcam > produtcamrec && produtcam <= produtcammax)
-                return wfprodutcamqualp * fameta(produtcam, produtcammax, produtcamrec, 1000);
-        // Above the maximum: penalty with wfprodutcaminv.
-        if (produtcam > produtcammax)
-                return wfprodutcaminv * fameta(produtcam, produtcammax, produtcamrec, 1000);
 
         return fo;
 }

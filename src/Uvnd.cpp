@@ -629,7 +629,7 @@ int VND_Referencia(float *s, float *li, float *ls, float *rec, int *penalidadesu
     // Best objective value found so far (minimised); shared with the neighbourhood functions.
     long long fo_atual;
 
-    // Initial evaluation of the solution coming from the Shaking step
+    ajustarTempoCaminhoes(nvisitas, carga, compatibilidade, tciclo, tcontrole, npilhas, ncam, dispmec);
     // Evaluate the starting solution to obtain the reference objective.
     fo_atual = favaliacao(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, 
         prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole,
@@ -696,6 +696,7 @@ bool VND_RLP(float *s, float *li, float *ls, float *rec, int *penalidadesup, int
                     int wfprodcargainv, int wfprodcargaqual, int wfproducaocamtotal, int wfproducaocarga, 
                     int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist, float *dispmec, int **nviagem) 
 {
+    ajustarTempoCaminhoes(nvisitas, carga, compatibilidade, tciclo, tcontrole, npilhas, ncam, dispmec);
     // Evaluate the starting solution; this is the reference objective of the descent.
     long long fo_atual = favaliacao(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, 
         prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole,

@@ -265,30 +265,15 @@ int main(int argc, char *argv[])
     sprintf(buffer, "%sMina_%d/tciclo_%d.DAT", path_base, id_mina, id_mina);
     ler_tciclo_matriz(buffer, tciclo, npilhas, ncam);
 
-    // Available control time per truck (fixed at 360).
-    float tcontrole = 360.0;
-    // Trips per pile and truck: floor(tcontrole / tciclo) when the cycle time is valid (> 0.01).
-    // nummax[i] counts the trucks with at least one trip to pile i.
-    for (int i_p = 0; i_p < npilhas; i_p++)
-    {
-        int cont = 0;
-        for (int j_c = 0; j_c < ncam; j_c++)
-        {
-            if (tciclo[i_p][j_c] > 0.01)
-            {
-                nviagem[i_p][j_c] = (int)floor(tcontrole / tciclo[i_p][j_c]);
-                if (nviagem[i_p][j_c] > 0) cont++;
-            }
-            else nviagem[i_p][j_c] = 0;
-        }
-        nummax[i_p] = cont;
-    }
+    // Time horizon and mechanical availability determine the trip limits.
+    const float tcontrole = horizonte_planejamento_minutos;
+    iniciavetorfloat(dispmec, ncam, disponibilidade_mecanica_padrao);
+    carreganviagem(npilhas, ncam, nviagem, nummax, tcontrole, tciclo, dispmec);
 
-    // Initial state: zero production and visits, default loader assignment, zero truck utilisation (dispmec).
+    // Initial state: zero production and visits and default loader assignments.
     iniciavetorfloat(s, npilhas, 0.0);
     iniciamatrizint(nvisitas, npilhas, ncam, 0);
     iniciavetoralocarga(carga, npilhas, 0, true);
-    iniciavetorfloat(dispmec, ncam, 0.0);
 
     // Per-variable penalty weights from the grade range (ls - li), with the same rule as main_irace.cpp.
     for (int j_v = 0; j_v < nvar; j_v++)
@@ -303,7 +288,9 @@ int main(int argc, char *argv[])
     // Initial solution s built by the GRASP constructor; alpha is the --alpha parameter.
     constroisolucaoGRASP(s, carga, capcam, compatibilidade, nvisitas, nviagem,
                          npilhas, ncam, nvar, teores, rec, npminerio,
-                         QTDisp, cargamax, cargamin, ncarga, prodrec, remrec, alpha);
+                         QTDisp, cargamax, cargamin, ncarga, prodrec * horasDoHorizonte(tcontrole), remrec, alpha);
+    ajustarTempoCaminhoes(nvisitas, carga, compatibilidade, tciclo, tcontrole, npilhas, ncam, dispmec);
+    carregavetors(s, nvisitas, carga, capcam, compatibilidade, ncam, npilhas);
 
     // Run the algorithm selected by iRace
     // Run the search selected by --algoritmo: ILS or VNS. Any other value runs no search.

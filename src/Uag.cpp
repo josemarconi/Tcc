@@ -6,6 +6,8 @@
 #include <math.h>
 #include <limits.h>
 #include <float.h>
+#include <stdexcept>
+#include <vector>
 // Standard headers: stdlib (rand, malloc, calloc, free), math (ceil), limits (LLONG_MAX), float (FLT_MAX).
 
 #include "Hag.h"
@@ -83,8 +85,7 @@ void ordenar_populacao(Individuo *pop, int tamanho) {
 // -----------------------------------------------------------------------------
 // LOADER AND TRIP CROSSOVER
 // -----------------------------------------------------------------------------
-// Crossover: builds the child filho from parents p1 and p2. Repairs follow: duplicate loaders are removed,
-// production is recomputed, and each truck's time limit (tcontrole * dispmec[c]) is enforced by removing trips.
+// Crossover: inherits the parent assignments, repairs duplicate loaders and truck time, then recomputes production.
 // p1 and p2 are passed by value, but their arrays are shared with the caller.
 void crossover_carga_viagens(Individuo p1, Individuo p2, Individuo &filho, int npilhas, int ncam, int ncarga,
                              float *capcam, int **compatibilidade, float **tciclo, float tcontrole, float *dispmec) 
@@ -119,58 +120,25 @@ void crossover_carga_viagens(Individuo p1, Individuo p2, Individuo &filho, int n
     }
     free(usado);
 
-    // Recomputes the production of each front from its trips and loader.
-    for(int f=0; f<npilhas; f++) {
-        filho.s[f] = producaofrente(filho.nvisitas, filho.carga, capcam, compatibilidade, ncam, f);
-    }
-
-    // Enforces the time limit of each truck c: available time = tcontrole * dispmec[c].
-    for(int c=0; c<ncam; c++) {
-        float tempo_max = tcontrole * dispmec[c];
-        // Truck with no available time: all of its trips are removed.
-        if(tempo_max <= 0) {
-            for(int f=0; f<npilhas; f++) {
-                if(filho.nvisitas[f][c] > 0) {
-                    filho.s[f] -= (filho.nvisitas[f][c] * capcam[c]);
-                    filho.nvisitas[f][c] = 0;
-                }
-            }
-            continue;
-        }
-        // Time used by truck c: trips times cycle time, counted only over fronts that have a loader.
-        float tempo_gasto = 0;
-        for(int f=0; f<npilhas; f++) {
-            if(filho.carga[f].equip != disponivel) tempo_gasto += filho.nvisitas[f][c] * tciclo[f][c];
-        }
-        // Removes trips, one at a time, until the time used fits the limit. Each step draws a random front
-        // and removes one trip from it if that front has any trips for this truck.
-        while(tempo_gasto > tempo_max) {
-            int f_rand = rand() % npilhas;
-            if(filho.nvisitas[f_rand][c] > 0) {
-                filho.nvisitas[f_rand][c]--;
-                filho.s[f_rand] -= capcam[c];
-                tempo_gasto -= tciclo[f_rand][c];
-            }
-        }
-    }
+    ajustarTempoCaminhoes(filho.nvisitas, filho.carga, compatibilidade, tciclo, tcontrole, npilhas, ncam, dispmec);
+    carregavetors(filho.s, filho.nvisitas, filho.carga, capcam, compatibilidade, ncam, npilhas);
 }
 
 // -----------------------------------------------------------------------------
 // FAST FEASIBILITY REPAIR
 // -----------------------------------------------------------------------------
-// Repair operator: raises the ore production (sum of s over the first npminerio fronts) to prodrec by
-// giving free loaders to unassigned ore fronts and adding trips greedily. Updates s, nvisitas and carga
-// of ind; ind.fo is not updated here.
+// Repair operator: converts the hourly ore target to tonnes over the horizon, then adds trips greedily.
 void reparar_producao_rapido(Individuo &ind, int npilhas, int npminerio, int ncam, int ncarga, 
                              float *capcam, int **compatibilidade, float **tciclo, float tcontrole, 
                              float *dispmec, int **nviagem, float prodrec, float *QTDisp)
 {
-    // Ore production of the individual.
+    const float meta_minerio_turno = prodrec * horasDoHorizonte(tcontrole);
+    // Mass of ore transported by the individual.
     float prod_atual = 0.0f;
     for (int f = 0; f < npminerio; f++) prod_atual += ind.s[f];
     
     // The individual already meets the production target: nothing to repair.
-    if (prod_atual >= prodrec) return;
+    if (prod_atual >= meta_minerio_turno) return;
 
     // Loaders already assigned to some front.
     bool *maq_em_uso = (bool*)calloc(ncarga, sizeof(bool));
@@ -191,16 +159,13 @@ void reparar_producao_rapido(Individuo &ind, int npilhas, int npminerio, int nca
     }
     free(maq_em_uso);
 
-    // Estimated time used by each truck: trips times cycle time, over fronts with a loader.
-    float *tempo_cam = (float*)calloc(ncam, sizeof(float));
+    double *tempo_cam = (double*)calloc(ncam, sizeof(double));
     for (int c = 0; c < ncam; c++) {
-        for (int f = 0; f < npilhas; f++) {
-            if (ind.carga[f].equip != disponivel) tempo_cam[c] += ind.nvisitas[f][c] * tciclo[f][c];
-        }
+        tempo_cam[c] = tempoUtilizadoCaminhao(ind.nvisitas, ind.carga, compatibilidade, tciclo, npilhas, c);
     }
 
     // Greedy loop: adds one trip per iteration until the production target is reached.
-    while (prod_atual < prodrec) {
+    while (prod_atual < meta_minerio_turno) {
         int melhor_f = -1;
         int melhor_c = -1;
         float melhor_score = -FLT_MAX;
@@ -214,7 +179,7 @@ void reparar_producao_rapido(Individuo &ind, int npilhas, int npminerio, int nca
                 if (compatibilidade[c][ind.carga[f].equip] != compativel) continue;
                 if (ind.nvisitas[f][c] >= nviagem[f][c]) continue;
                 if (ind.s[f] + capcam[c] > QTDisp[f]) continue;
-                float tempo_max = tcontrole * dispmec[c];
+                const double tempo_max = tcontrole * dispmec[c];
                 if (tempo_cam[c] + tciclo[f][c] > tempo_max) continue;
 
                 // Score favours high-capacity trucks with short cycle times.
@@ -434,9 +399,8 @@ void mutacao_GRASP_minerio(Individuo ind, int npilhas, int npminerio, int ncam, 
 // -----------------------------------------------------------------------------
 // MASTER STRUCTURE OF THE GENETIC ALGORITHM (GA)
 // -----------------------------------------------------------------------------
-// AlgoritmoGenetico: genetic algorithm driver. Builds 32 parents by GRASP construction and local search,
-// then runs up to 50 generations. Each generation creates 32 offspring by tournament selection, crossover,
-// repair, mutation and local search, sorts all 64 individuals and keeps the best 32 as parents.
+// Builds tam_pop parents by GRASP construction and local search, then runs 50 generations.
+// Each generation creates tam_pop offspring and keeps the best tam_pop individuals as parents.
 // Mutation is heavy (GRASP) after 5 generations without improvement, otherwise light (directed).
 // forma_vnd == 1 selects VND as local search, any other value selects VND-RLP.
 // The best individual is copied to s_main, nvis_main and carga_main. Returns the number of generations executed.
@@ -448,27 +412,25 @@ int AlgoritmoGenetico(
          int *nummax, int wfproducaoinv, int wfproducaoqualp, int wfproducaoqualn, int wfteor, int wfrem,
          int wfremqualp, int wfremqualn, int wfprodutcaminv, int wfprodutcamqualp, int wfprodutcamqualn,
          int wfprodcargainv, int wfprodcargaqual, int wfproducaocamtotal, int wfproducaocarga,
-         int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist, float *dispmec, int **nviagem, int forma_vnd)
+         int wfnumcamutilizados, int wfestatico, int wfnumcam, int wfdist, float *dispmec, int **nviagem, int forma_vnd,
+         int tam_pop, float alpha)
 {
-    // Population sizes and parameters: 32 parents, 64 individuals in total (parents plus offspring),
-    // at most 50 generations, and alpha = 0.20 for the GRASP candidate list.
-    int tam_pop = 32;
-    int tam_total = 64; 
-    int max_geracoes = 50; 
-    float alpha = 0.20;
-    int geracoes_executadas = 0;
+    if (tam_pop < 2 || tam_pop > INT_MAX / 2 || !(alpha >= 0.0f && alpha <= 1.0f))
+        throw std::invalid_argument("Invalid population size or alpha");
 
-    Individuo pop[64]; // Adjusted to support tam_total = 64
-    // Allocates all 64 individuals (parent and offspring slots).
-    for(int i=0; i<tam_total; i++) pop[i] = criar_individuo(npilhas, ncam);
+    const int tam_total = 2 * tam_pop;
+    const int max_geracoes = 50;
+    int geracoes_executadas = 0;
+    const float meta_minerio_turno = prodrec * horasDoHorizonte(tcontrole);
+
+    std::vector<Individuo> pop(tam_total);
+    for (Individuo &ind : pop) ind = criar_individuo(npilhas, ncam);
 
     // Initialization
     // Initial parent population: a GRASP construction followed by local search for each individual.
     for(int i=0; i<tam_pop; i++) {
-        // Local declaration of constroisolucaoGRASP (same signature as in Hutilcarga.h).
-        extern void constroisolucaoGRASP(float*, struct alocarga*, float*, int**, int**, int**, int, int, int, float**, float*, int, float*, float*, float*, int, float, float, float);
         // Builds a GRASP initial solution for this individual.
-        constroisolucaoGRASP(pop[i].s, pop[i].carga, capcam, compatibilidade, pop[i].nvisitas, nviagem, npilhas, ncam, nvar, teores, rec, npminerio, QTDisp, cargamax, cargamin, ncarga, prodrec, remrec, alpha);
+        constroisolucaoGRASP(pop[i].s, pop[i].carga, capcam, compatibilidade, pop[i].nvisitas, nviagem, npilhas, ncam, nvar, teores, rec, npminerio, QTDisp, cargamax, cargamin, ncarga, meta_minerio_turno, remrec, alpha);
         
         // Local search: VND if forma_vnd == 1, otherwise VND-RLP.
         if(forma_vnd == 1) VND_Referencia(pop[i].s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, remrec, remmax, remmin, pop[i].nvisitas, pop[i].carga, capcam, compatibilidade, tciclo, tcontrole, ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem);
@@ -478,7 +440,7 @@ int AlgoritmoGenetico(
         pop[i].fo = AVALIAR(pop[i]);
     }
     // Sorts the parents so the best one is at index 0.
-    ordenar_populacao(pop, tam_pop);
+    ordenar_populacao(pop.data(), tam_pop);
 
     // Best objective value found so far.
     long long melhor_fo_global = pop[0].fo;
@@ -493,9 +455,9 @@ int AlgoritmoGenetico(
         // Builds tam_pop offspring, written into slots tam_pop .. tam_total - 1.
         for(int i=0; i<tam_pop; i++) {
             // Two different parents chosen by binary tournament.
-            int p1 = torneio(pop, tam_pop);
-            int p2 = torneio(pop, tam_pop);
-            while(p1 == p2) p2 = torneio(pop, tam_pop);
+            int p1 = torneio(pop.data(), tam_pop);
+            int p2 = torneio(pop.data(), tam_pop);
+            while(p1 == p2) p2 = torneio(pop.data(), tam_pop);
 
             // Crossover of loader assignments and trips from p1 and p2 into the offspring slot.
             crossover_carga_viagens(pop[p1], pop[p2], pop[tam_pop + i], npilhas, ncam, ncarga, capcam, compatibilidade, tciclo, tcontrole, dispmec);
@@ -504,9 +466,9 @@ int AlgoritmoGenetico(
             
             // Mutation: heavy GRASP mutation after 5 generations without improvement, otherwise the light directed mutation.
             if (geracoes_sem_melhora >= limite_estagnacao) {
-                mutacao_GRASP_minerio(pop[tam_pop + i], npilhas, npminerio, ncam, ncarga, nvar, capcam, compatibilidade, teores, rec, QTDisp, cargamax, nviagem, prodrec, alpha);
+                mutacao_GRASP_minerio(pop[tam_pop + i], npilhas, npminerio, ncam, ncarga, nvar, capcam, compatibilidade, teores, rec, QTDisp, cargamax, nviagem, meta_minerio_turno, alpha);
             } else {
-                mutacao_dirigida(pop[tam_pop + i], npilhas, ncam, capcam, compatibilidade, nviagem, prodrec);
+                mutacao_dirigida(pop[tam_pop + i], npilhas, ncam, capcam, compatibilidade, nviagem, meta_minerio_turno);
             }
             
             // Local search on the offspring (VND or VND-RLP, as above).
@@ -516,8 +478,8 @@ int AlgoritmoGenetico(
             // Evaluates the offspring.
             pop[tam_pop + i].fo = AVALIAR(pop[tam_pop + i]);
         }
-        // Sorts all 64 individuals by fo. The best 32 become the parents of the next generation.
-        ordenar_populacao(pop, tam_total);
+        // Sorts parents and offspring by fo, keeping the best tam_pop at the front.
+        ordenar_populacao(pop.data(), tam_total);
 
         // Updates the best objective value and the count of generations without improvement.
         if (pop[0].fo < melhor_fo_global) {
@@ -537,7 +499,7 @@ int AlgoritmoGenetico(
     }
 
     // Frees all individuals.
-    for(int i=0; i<tam_total; i++) liberar_individuo(pop[i], npilhas);
+    for (const Individuo &ind : pop) liberar_individuo(ind, npilhas);
 
     // Number of generations executed. The loop has no early exit, so this equals max_geracoes.
     return geracoes_executadas;

@@ -20,7 +20,7 @@ Each mine is an instance defined in `dados/minas.txt`. It specifies:
 - the fleet type (homogeneous, heterogeneous, or homogeneous with 120/130 t trucks);
 - the cycle time (short, medium or long).
 
-A solution defines how many trips each truck makes to each front and which loaders operate each front. It is evaluated by an objective function (FO) that sums penalties and must be minimized. The penalties cover ore production, quality grades, REM, truck and loader utilization, and compatibility between equipment.
+A solution defines how many trips each truck makes to each front and which loaders operate each front. The objective function (FO) sums penalties for ore production, quality grades, REM, loader production and the number of trucks used. Each truck's mechanical availability limits its total cycle time across all fronts.
 
 ---
 
@@ -82,37 +82,36 @@ The methods compared in the current experiment:
 | Method | Initial construction | Improvement |
 |---|---|---|
 | 1 (VNS-Referencia) | GRASP | VNS with fixed-order VND |
-| 2 (VNS-RLP) | GRASP | VNS with random-order VND |
-| 3 (AG-RLP) | GRASP (initial population) | Genetic algorithm, with random-order VND as local search |
+| 2 (VNS-Random) | GRASP | VNS with random-order VND |
+| 3 (AG-Random) | GRASP (initial population) | Genetic algorithm, with random-order VND as local search |
 
 ### 3.1 Nomenclature
 
-- **RLP** stands for "Random Lavra Planning", the name used in the thesis for the random-order variant (in Portuguese, Planejamento de Lavra Aleatorio).
-- In the old names, "NORMAL" (or "Normal") means the fixed-order version and "ALEATORIO" (or "Aleatorio") means the random-order version. The suffix "-Referencia" marks the fixed-order version.
+The suffix **Random** denotes the variant with random-order neighbourhoods. The suffix **Referencia** denotes the fixed-order variant.
 
-The thesis names are used in this documentation. The folders, file names and code paths that the program creates or reads still use the old names, shown below. Until they are renamed, the commands in these READMEs use the names the code currently uses.
+| English name | Portuguese name | C++ identifier or report folder |
+|---|---|---|
+| VND-Referencia | VND-Referência | `VND_Referencia` |
+| VND-Random | VND-Aleatória | `VND_RLP` |
+| VNS-Referencia | VNS-Referência | `src/Relatorios_Finais/VNS-Referencia/` |
+| VNS-Random | VNS-Aleatória | `src/Relatorios_Finais/VNS-RLP/` |
+| AG-Random | AG-Aleatória | `src/Relatorios_Finais/AG-RLP/` |
+| ILS-Referencia | ILS-Referência | `ILS_Referencia` |
+| ILS-Random | ILS-Aleatória | `ILS_RLP` |
 
-| Name used in these READMEs | Old name (folders, files and code) |
-|---|---|
-| VND-Referencia | `VND_NORMAL`, `VND` (fixed-order VND) |
-| VND-RLP | `VND_ALEATORIO`, `VND_Aleatorio` (random-order VND) |
-| VNS-Referencia | folder `GRASP_VND_NORMAL`, file prefix `VNS_VND(NORMAL)` |
-| VNS-RLP | folder `GRASP_VND_ALEATORIO`, file prefix `VNS_VND(ALEATORIO)` |
-| AG-RLP | folder `AG_VND_ALEATORIO` |
-| ILS-Referencia | `ILS_Normal`, Smart ILS, `ILS_Grasp_Normal` |
-| ILS-RLP | `ILS_Aleatorio` |
-
-The consolidated CSV files follow the folder names (one per method folder: `VNS-Referencia.csv`, `VNS-RLP.csv` and `AG-RLP.csv` once the folders have the new names). The historical folder `Relatorios/` keeps its old names.
+The consolidated CSV in each report folder uses the folder name. Historical reports in `src/Relatorios/` use `NORMAL` for fixed-order variants and `ALEATORIO` for random-order variants.
 
 The averages below were calculated from these CSV files, first per instance and then over the 290 instances, and match the summary in the thesis:
 
 | Method | Average evaluation function | Average time (s) |
 |---|---:|---:|
 | VNS-Referencia | 52,206.53 | 114.69 |
-| VNS-RLP | 51,963.30 | 93.53 |
-| AG-RLP | 450,525.13 | 25.40 |
+| VNS-Random | 51,963.30 | 93.53 |
+| AG-Random | 450,525.13 | 25.40 |
 
-VNS-RLP had the lowest overall average of the evaluation function among the VNS variants. AG-RLP had the lowest average time, but a much higher and more heterogeneous average of penalties. The comparison is descriptive: it does not show statistical significance, nor the physical feasibility of all plans.
+VNS-Random had the lowest overall average of the evaluation function among the VNS variants. AG-Random had the lowest average time, but a much higher and more heterogeneous average of penalties. The comparison is descriptive: it does not show statistical significance, nor the physical feasibility of all plans.
+
+These figures come from runs that assigned zero mechanical availability to every truck. The corrected implementation uses a shared time limit, so the comparison needs new runs under the corrected model.
 
 The configured experiment runs 20 tests per method on the 290 instances (17,400 runs). However, the result set currently present in `src/Relatorios_Finais/` contains tests 1 to 8 for each method: 6,960 recorded runs. These eight runs per method and instance are the ones behind the results presented in the thesis; tests 9 to 20 are not yet in that folder. The ILS and simulated annealing exist partially in the code, but are not part of the main experiment (see `src/README.md`).
 
@@ -178,7 +177,7 @@ The divergences below were verified in the code. They were not corrected, becaus
 3. **Discharge 1/3**. The notebook writes one line per crusher, but the C++ code reads only the first. The target used is that of `BRIT_0` (900/1100/1300 t/h), not the total of the three (2700/3300/3900 t/h).
 4. **Fixed REM**. The notebook uses 0.25/0.31/0.4 for all mines, without reading `teores_producao.csv`.
 5. **Run script**. `src/exec.sh` tests for the existence of `./executo`, but the executable is called `./exec`. Therefore `make` runs on every call.
-6. **Calibration**. The `target-runner` in `src/Calibracao_Ag/` refers to the old folder `Codigo_novo`, and `exec_irace` must be built manually. The `--pop` flag in the parameter file is not recognized by the driver.
+6. **Calibration**. The calibration executables have separate build instructions in [the source README](src/README.md#6-calibration-with-irace).
 
 ---
 

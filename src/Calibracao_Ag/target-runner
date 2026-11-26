@@ -1,29 +1,14 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# irace passes: configuration id, instance id, seed, instance, then the parameters.
-# Capture the arguments supplied by iRace
-# Save the seed (third argument).
-SEED=$3
-# Save the instance (fourth argument), which is the mine number.
-INSTANCE=$4
-
-# Discard the first four positional arguments; the remaining ones are the parameter flags.
-# Remove the 4 fixed arguments so that only the flags (--pop, --alpha, etc.) remain
+# irace passes the configuration ID, instance ID, seed, instance and parameter switches.
+seed=$3
+instance=$4
 shift 4
-PARAMS=$*
 
-# Directory of the parent of this script, i.e. src/, where exec_irace is located.
-# Identify the parent directory (Codigo_novo) where the exec_irace executable is located
-DIR_CODIGO="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$(dirname "$0")/.." || exit 1
+executable=./exec_irace_ag
+if [[ -f ./exec_irace_ag.exe ]]; then
+    executable=./exec_irace_ag.exe
+fi
 
-# Run from src/ so that the relative paths to ../dados/ resolve correctly.
-# Run inside Codigo_novo to keep the relative paths to the mine files correct
-cd "$DIR_CODIGO" || exit 1
-
-# Execute the C++ driver for this mine and seed, and capture the objective value it prints.
-# Run the C++ program and capture the objective function (FO) value
-COST=$(./exec_irace --instance "$INSTANCE" --seed "$SEED" $PARAMS)
-
-# irace reads the cost from standard output.
-# Return the numeric cost to iRace
-echo "$COST"
+exec "$executable" --instance "$instance" --seed "$seed" --metodo 12 "$@"

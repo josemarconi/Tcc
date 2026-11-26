@@ -346,7 +346,7 @@ void perturbacao_micro_GRASP(int **nvisitas, int **nviagem, float *s, float *cap
         \
         /* 1. HYBRID PERTURBATION: mixes smart moves with micro-reconstruction */ \
         realizar_perturbacao_inteligente(nvisitas, nviagem, s, capcam, npilhas, ncam, carga, compatibilidade, nivel_movimentos); \
-        perturbacao_micro_GRASP(nvisitas, nviagem, s, capcam, npilhas, ncam, carga, compatibilidade, teores, rec, npminerio, QTDisp, cargamax, ncarga, nvar, prodrec, alpha_p); \
+        perturbacao_micro_GRASP(nvisitas, nviagem, s, capcam, npilhas, ncam, carga, compatibilidade, teores, rec, npminerio, QTDisp, cargamax, ncarga, nvar, prodrec * horasDoHorizonte(tcontrole), alpha_p); \
         \
         /* 2. LOCAL SEARCH */ \
         VND_FUNC(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem); \

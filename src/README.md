@@ -18,11 +18,11 @@ The solution is evaluated by an **objective function (FO) that is minimized**. T
 
 | Term | Function | What it penalizes |
 |---|---|---|
-| Ore production | `fa_producao` | Total ore production (sum of the ore fronts) outside the minimum/target/maximum range. The range has four regions: below the minimum (weight `inv`), between minimum and target (`qualn`), between target and maximum (`qualp`), and above the maximum (`inv`). |
+| Ore production | `fa_producao` | Average ore production in t/h across all ore fronts. Uses weight `inv` outside the limits, `qualn` between the minimum and the target, and `qualp` between the target and the maximum. |
 | Grades | `fa_teor` | Grade of each quality variable outside the `cmin`/`cmax` limits, with the target at `crec`. |
 | REM | `fa_rem` | Waste/ore ratio outside the range and the target. |
-| Truck utilization | `fa_produtcam` | Production of each used truck outside the utilization range. Unused trucks are not penalized. |
-| Loader production | `fa_prodcarga` | Production of each front outside the `cargamin` and `cargamax` limits of the loader that serves it. |
+| Mechanical availability | `tempoUtilizadoCaminhao` | Feasibility constraint. A solution that exceeds any truck's available time is rejected. |
+| Loader production | `fa_prodcarga` | Average production of each front in t/h, evaluated against the hourly limits of the assigned loader. |
 | Number of trucks used | `fa_numcam` | Number of trucks with at least one trip, multiplied by `wfnumcamutilizados`. |
 | Static truck term | `fa_estatico` | Multiplied by `estdin`. |
 | Excess trucks per front | `fa_numcamfrente` | Multiplied by `estdin`. |
@@ -37,14 +37,14 @@ Implemented methods:
 |---|---|---|
 | GRASP (initial solution) | `constroisolucaoGRASP` and `constroisolucaoGRASP_Parcial` in `Uutilcarga.cpp` | Used by all methods. Builds the solution with a restricted candidate list (parameter `alpha`). |
 | VNS-Referencia: VNS with fixed-order VND | `VNS` in `Uvns.cpp`, with `forma = 1` | Method 1 |
-| VNS-RLP: VNS with random-order VND | `VNS` in `Uvns.cpp`, with `forma = 2` | Method 2 |
-| AG-RLP: genetic algorithm with random-order VND | `AlgoritmoGenetico` in `Uag.cpp` | Method 3 |
-| ILS (several variants, named ILS-Referencia and ILS-RLP) | `Uils.cpp`, `Hils.h` | Not called by `main.cpp`. Used only by the calibration drivers. |
+| VNS-Random: VNS with random-order VND | `VNS` in `Uvns.cpp`, with `forma = 2` | Method 2 |
+| AG-Random: genetic algorithm with random-order VND | `AlgoritmoGenetico` in `Uag.cpp` | Method 3 |
+| ILS (several variants, named ILS-Referencia and ILS-Random) | `Uils.cpp`, `Hils.h` | Not called by `main.cpp`. Used only by the calibration drivers. |
 | Simulated annealing | `Hsa.h` | Header only. There is no implementation (`Usa.cpp` does not exist) and nothing calls these functions. |
 
 Two kinds of local search:
 
-- **VND** (Variable Neighbourhood Descent) in `Uvnd.cpp`: goes through eight neighbourhoods in fixed order (VND-Referencia, code `VND`) or in random order (VND-RLP, code `VND_Aleatorio`), and accepts only improvements.
+- **VND** (Variable Neighbourhood Descent) in `Uvnd.cpp`: goes through eight neighbourhoods in fixed order (VND-Referencia, `VND_Referencia`) or in random order (VND-Random, `VND_RLP`), and accepts only improvements.
 - **VNS** in `Uvns.cpp`: at each iteration applies a perturbation (*shaking*) of strength `k` (from 1 to 4), then the local search chosen by `forma`. It keeps the best solution. The number of outer iterations is fixed at 1800.
 
 The eight neighbourhoods are implemented in `Umovimento.cpp`. The acronyms below are an interpretation of the function names:
@@ -60,7 +60,7 @@ The eight neighbourhoods are implemented in `Umovimento.cpp`. The acronyms below
 | ST | `movimentoSwapTrips` | Swaps trips between two trucks. |
 | SS | `movimentoSwapShovels` | Swaps the loaders between two fronts. |
 
-The genetic algorithm (`Uag.cpp`) uses a population of 32 individuals (`tam_pop`) and 50 generations (`max_geracoes`), both fixed in the code. The operators are: tournament selection (`torneio`), crossover of load and trips with truck-time repair (`crossover_carga_viagens`), fast production repair (`reparar_producao_rapido`), directed mutation (`mutacao_dirigida`) and GRASP mutation on ore (`mutacao_GRASP_minerio`). The local search inside the GA is VND (`forma_vnd = 1`) or random-order VND (any other value). In method 3 of `main.cpp`, random-order VND (VND-RLP) is used.
+The genetic algorithm (`Uag.cpp`) runs for 50 generations. It builds `tam_pop` parents by GRASP and produces `tam_pop` offspring in each generation. Tournament selection, crossover, repair and mutation produce offspring, and the best `tam_pop` individuals become the next population. The parameter `alpha` sets the GRASP candidate list size for both the initial population and the GRASP mutation. Method 3 in `main.cpp` uses random-order VND (VND-Random) and the GA defaults in `Hag.h`.
 
 ---
 
@@ -77,7 +77,7 @@ The genetic algorithm (`Uag.cpp`) uses a population of 32 individuals (`tam_pop`
 | `Hutilcarga.h`, `Uutilcarga.cpp` | Construction of initial solutions (random, greedy, GRASP), production and time helpers, and writing of the solution report (`imprimerelatorio`). |
 | `Hfavaliacao.h`, `Ufavaliacao.cpp` | Objective function and its terms. |
 | `Hmovimento.h`, `Umovimento.cpp` | The eight neighbourhood moves. |
-| `Hvnd.h`, `Uvnd.cpp` | VND, random-order VND (VND-RLP) and the neighbourhoods that compose them. |
+| `Hvnd.h`, `Uvnd.cpp` | VND, random-order VND (VND-Random) and the neighbourhoods that compose them. |
 | `Hvns.h`, `Uvns.cpp` | VNS and its parameterized version. |
 | `Hils.h`, `Uils.cpp` | ILS variants and GRASP-ILS. |
 | `Hag.h`, `Uag.cpp` | Genetic algorithm, `Individuo` struct and operators. |
@@ -116,23 +116,29 @@ For each mine, in this order:
 
 1. **Dimensions**: counts the lines of `quant_N.DAT` (fronts), `capcam_est_N.DAT` (trucks), `cargamax_N.DAT` (loaders) and `cmax_N.DAT` (quality parameters). Reads the number of ore fronts from `../dados/minas.txt` (function `descobrir_npminerio`).
 2. **Reading**: loads all `.DAT` files of the mine (formats in [`../dados/README.md`](../dados/README.md), section 4). The production (`prod_N.DAT`) is read by the function `ler_arquivo_producao`.
-3. **Travel time**: computes the maximum number of trips of each truck to each front as `floor(360 / cycle_time)`. The value `360` is fixed in the code (`tcontrole`).
+3. **Travel time**: computes the maximum number of trips of truck `c` to a single front as `floor(360 * dispmec[c] / cycle_time)`. The total cycle time of that truck across all active, compatible fronts must also fit within `360 * dispmec[c]`.
 4. **Penalties**: for each quality parameter, the range `cmax - cmin` sets the penalty weight (`100 / (range + 0.001)`). If the range is almost zero, 5% of the recommended value is used.
 5. **Seed**: `srand(run_number * 997 + mine_id * 31 + method * 101)`. Each combination of test, mine and method has a different, reproducible seed.
-6. **Initial solution**: `constroisolucaoGRASP` with `alpha = 0.20` for the GA and `alpha = 0.3741` for the VNS methods.
+6. **Initial solution**: the VNS methods use one GRASP solution with `alpha = 0.3741`. The GA constructs its GRASP population internally.
 7. **Improvement**: `VNS` (methods 1 and 2) or `AlgoritmoGenetico` (method 3).
 8. **Final evaluation**: `favaliacao` on the final solution. The value is the recorded FO.
 9. **Record**: appends a line `Mina;Fo;Tempo(s);Iter` to the method's CSV.
+
+Mechanical availability is the fraction of the horizon during which a truck can operate. The instances have no mechanical downtime input, so the experiment and both irace drivers use 100% availability by default (`disponibilidade_mecanica_padrao` in `Hdefine.h`). At 85% availability, a truck has 306 time units in a horizon of 360. Any combination of trips that fits within those 306 units respects the availability constraint.
+
+Before local search, plans exceeding the budget are repaired by removing the longest trips first. The genetic algorithm applies the same repair at crossover, and its production repair adds trips only while there is time available. The shared objective rejects moves that exceed the budget. The previous utilization penalty and its weights have no effect in the corrected objective. Existing result CSVs describe the earlier implementation.
+
+The ore targets and loader limits in the instance files are hourly rates (t/h). Truck payloads and front inventories are in tonnes per trip and tonnes, respectively. The objective compares hourly limits with the tonnes transported divided by the horizon in hours (6 by default). Construction, mutation and production repair convert the hourly ore target to tonnes over the same horizon before assigning trips.
 
 Methods and their output files:
 
 | Method | Description | Output folder | File |
 |---|---|---|---|
 | 1 | GRASP + VNS with VND (fixed order) (VNS-Referencia) | `Relatorios_Finais/VNS-Referencia/` | `Resumo_Geral_Minas_VNS-Referencia_Teste_<j>.csv` |
-| 2 | GRASP + VNS with random-order VND (VNS-RLP) | `Relatorios_Finais/VNS-RLP/` | `Resumo_Geral_Minas_VNS-RLP_Teste_<j>.csv` |
-| 3 | GRASP + GA with random-order VND (AG-RLP) | `Relatorios_Finais/AG-RLP/` | `Resumo_Geral_Minas_AG-RLP_Teste_<j>.csv` |
+| 2 | GRASP + VNS with random-order VND (VNS-Random) | `Relatorios_Finais/VNS-RLP/` | `Resumo_Geral_Minas_VNS-RLP_Teste_<j>.csv` |
+| 3 | GRASP + GA with random-order VND (AG-Random) | `Relatorios_Finais/AG-RLP/` | `Resumo_Geral_Minas_AG-RLP_Teste_<j>.csv` |
 
-Note on names: the code, the output folders and the output files now use the thesis names above. Earlier results on disk were renamed to match (see the output section).
+The description column uses the method names in this documentation. The output columns give the paths and filenames used by the program.
 
 The program does not write the `Solucoes/` folder. The `Iter` field of each line is the number of outer iterations of the VNS (1800) or of the GA (50), and `Tempo(s)` is the wall-clock time of the search, without the data reading.
 
@@ -223,7 +229,7 @@ Mina;Fo;Tempo(s);Iter
 
 Current state: each method folder has 8 complete tests (290 mines each). The plan is 20 tests, so tests 9 to 20 still need to be run.
 
-After running the processing notebook (section 7), each folder also contains a consolidated CSV, `<method>.csv` (`VNS-Referencia.csv`, `VNS-RLP.csv` and `AG-RLP.csv` once the folders have the new names), with one row per mine and the columns `fo_<n>` and `tempo_<n>` of each test.
+After running the processing notebook (section 7), each folder contains a consolidated CSV named after that folder (`VNS-Referencia.csv`, `VNS-RLP.csv` or `AG-RLP.csv`), with one row per mine and the columns `fo_<n>` and `tempo_<n>` for each test.
 
 ### 5.2 Solution report (`Solucoes/`)
 
@@ -254,29 +260,29 @@ There are two calibration folders. Both use the `irace` package of R to tune par
 
 | Folder | Calibrated algorithm | Parameters (`parameters*.txt`) | Instances (`instances*.txt`) |
 |---|---|---|---|
-| `Calibracao_Ag/` | GA | `tam_pop` (values 12, 20, 32, passed as `--pop`) and `alpha` (0.05; 0.10; 0.15; 0.20) | 1, 72, 116, 290 |
+| `Calibracao_Ag/` | AG-Random | `tam_pop` (12, 20, 32, passed as `--pop`) and `alpha` (0.05; 0.10; 0.15; 0.20, passed as `--alpha`) | 1, 72, 116, 290 |
 | `Calibracao_VNS_ILS/` | ILS or VNS | `algoritmo` (ILS or VNS), `iteracoes` (800 to 1800), `nivel` (ILS), `k` (VNS) and `alpha` (0.1 to 0.5) | 1, 290, 72, 116 |
 
 Each folder has:
 
-- `main_irace.cpp` or `main_irace_2.cpp`: driver that runs one instance with the parameters received on the command line and prints the FO. It accepts `--instance`/`-i` and `--seed`/`-s`, and the parameters of the respective algorithm. In `main_irace.cpp`, the flag `--metodo` selects the local search of the GA: 11 means VND-Referencia (fixed-order VND, `forma_vnd = 1`) and 12 means VND-RLP (random-order VND, `forma_vnd = 2`).
-- `run_irace.R`: irace configuration and execution (`maxExperiments` of 1000 for the GA and of 200 for VNS/ILS).
-- `target-runner`: bash script that irace calls for each configuration. It converts the irace arguments into a call `./exec_irace --instance ... --seed ... <parameters>` and returns the FO value.
+- `main_irace.cpp` or `main_irace_2.cpp`: driver that runs one instance with the parameters received on the command line and prints the FO. It accepts `--instance`/`-i` and `--seed`/`-s`, and the parameters of the respective algorithm. In `main_irace.cpp`, the flag `--metodo` selects the local search of the GA: 11 means VND-Referencia (fixed-order VND, `forma_vnd = 1`) and 12 means VND-Random (random-order VND, `forma_vnd = 2`).
+- `run_irace.R`: irace configuration and execution. The AG script compares all 12 pairs on the four training mines using a common seed per mine across the candidates. The VNS/ILS script has a budget of 200 experiments.
+- `target-runner`: Bash wrapper for running a calibration case. The AG script calls its executable directly from R, including on Windows.
 - Result files from earlier runs (`configuracoes.csv`, `irace.Rdata`, `all_configurations.csv`, `experiments_matrix.csv`, `irace-output.Rdata`).
 
 To run the calibration as planned:
 
-1. Build the `exec_irace` executable **in `src/`**, linking the chosen driver to the program modules, except `main.cpp`. Example for the GA (tested, no errors):
+1. Build the calibration executable **in `src/`**, linking the chosen driver to the program modules, except `main.cpp`. For AG-Random, run the following command.
 
    ```bash
    cd D:/Faculdade_8/I_C_Mais_Atualizado/src
-   g++ -O3 -std=c++11 -I. -o exec_irace Calibracao_Ag/main_irace.cpp \
+   g++ -O3 -std=c++11 -I. -o exec_irace_ag Calibracao_Ag/main_irace.cpp \
        Ufavaliacao.cpp Uils.cpp Umovimento.cpp Uutil.cpp Uutilcarga.cpp Uvnd.cpp Uvns.cpp Uag.cpp
    ```
 
-   For ILS/VNS, replace `Calibracao_Ag/main_irace.cpp` with `Calibracao_VNS_ILS/main_irace_2.cpp`.
+   For ILS/VNS, use `Calibracao_VNS_ILS/main_irace_2.cpp` and name its executable `exec_irace`.
 
-   On Windows, `g++` generates `exec_irace.exe`. The `target-runner` is a bash script, and Git Bash resolves `./exec_irace` to `exec_irace.exe` automatically.
+   On Windows, the AG executable is `exec_irace_ag.exe`.
 
 2. Go into the calibration folder and run irace:
 
@@ -285,13 +291,9 @@ To run the calibration as planned:
    Rscript run_irace.R
    ```
 
-   The `target-runner` does `cd` into the parent folder (`src/`), where `exec_irace` is located.
+   The AG script stores the irace log, elite configurations and per-run costs in `Calibracao_Ag/recalibracao/`.
 
-Known limitations (see section 8):
-
-- The `target-runner` of `Calibracao_Ag/` still mentions `Codigo_novo`, the name of an earlier organization. This affects only the comment; the `cd` uses the parent folder, which is `src/`.
-- `exec_irace` is not generated by the `Makefile`. It must be built manually, as described above.
-- The `parameters.txt` of `Calibracao_Ag` passes `--pop`, but the driver `main_irace.cpp` does not recognize this flag. Therefore `tam_pop` has no effect: the GA always uses 32 individuals (fixed value in `Uag.cpp`).
+The AG-Random calibration ran 48 evaluations. All 12 configurations obtained the same objective value on each training mine and a mean of 164,780. The experiment uses `tam_pop = 12`, the smallest tested population, with `alpha = 0.05` from the irace ranking.
 
 ---
 
@@ -303,7 +305,7 @@ The notebook consolidates the results in `Relatorios_Finais/`. It finds the meth
 Mina;fo_1;tempo_1;...;fo_N;tempo_N;iter
 ```
 
-Results from the first runs were stored in folders with the old names (`GRASP_VND_NORMAL`, `GRASP_VND_ALEATORIO`, `AG_VND_ALEATORIO`); they were renamed to `VNS-Referencia`, `VNS-RLP` and `AG-RLP`, with their files, to match the code.
+The notebook reads the report folders listed in section 3. The historical folders `GRASP_VND_NORMAL`, `GRASP_VND_ALEATORIO` and `AG_VND_ALEATORIO` are under `Relatorios/`.
 
 - `N` is the number of test files found in each folder (currently 8).
 - Times use a comma as decimal separator, and the column separator is `;`.
@@ -344,9 +346,8 @@ The points below were observed while reading the code and were not corrected, be
 
 ### 8.3 Calibration
 
-9. `exec_irace` is not generated by the `Makefile`, and the comment of the `target-runner` of `Calibracao_Ag/` mentions `Codigo_novo`, the old name of the folder.
-10. `--pop` is not recognized by `main_irace.cpp` (see section 6).
-11. `main_irace_2.cpp` has no option for the `wf*` weights, so it always uses the default values.
+9. The calibration executables are built separately as described in section 6.
+10. `main_irace_2.cpp` uses the default `wf*` weights.
 
 ### 8.4 C++ code
 
@@ -356,8 +357,8 @@ The items below are observations from reading the code, not tests. None was repr
 13. **`movimentoLoad`**: the comment says it validates compatibility with the new loader, but the function only limits the trips to `nviagem`.
 14. **GA time repair** (`Uag.cpp`): the repair counts only fronts with a loader, but the removal chooses any front. If no trips remain and the time stays above the limit, the loop may never end.
 15. **Directed mutation of the GA**: move 5 is never chosen.
-16. **Random-order VND (`VND_RLP`, VND-RLP)** (`Uvnd.cpp`): the comment says the order is weighted by weights, but the weights do not affect the order, which is uniform.
-17. **Neighbourhood numbering**: `VND_Referencia` (VND-Referencia) and `VND_RLP` (VND-RLP) use different numberings for the same moves.
+16. **Random-order VND (`VND_RLP`, VND-Random)** (`Uvnd.cpp`): the comment says the order is weighted by weights, but the weights do not affect the order, which is uniform.
+17. **Neighbourhood numbering**: `VND_Referencia` (VND-Referencia) and `VND_RLP` (VND-Random) use different numberings for the same moves.
 18. **Simulated annealing**: `Hsa.h` has prototypes without implementation and without include guards. It does not include `hstruct.h`, but it uses `struct alocarga`.
 19. **`learqmatriz`, `fopen` without checks**: some readers and writers in `Uutil.cpp` call `fprintf` or `feof` even when `fopen` returns `NULL`. The `while (!feof(...))` readers do not check the file content.
 20. **Functions without callers**: several functions in `Uutilcarga.cpp` (for example `constroisolucaoinicialvisitas02`, `constroisolucaogulosa` and `imprimerelatorio`) are not called by `main.cpp`. They are code from earlier versions.

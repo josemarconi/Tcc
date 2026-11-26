@@ -1,10 +1,14 @@
 // Prototypes of the loader and truck construction, evaluation and report functions defined in Uutilcarga.cpp.
-// Each comment below describes the function that follows it.
+constexpr float horasDoHorizonte(float minutos)
+{
+    return minutos / 60.0f;
+}
+
 // Allocates a vector of tam struct alocarga entries; released with liberavetoralocarga.
 struct alocarga *criavetoralocarga(int tam);
 // Copies the loader assignment (equip and op) of tam entries from star into s.
 void atualizamelhorsolucaoalocarga(struct alocarga *s, struct alocarga *star, int tam);
-// Recomputes the production vector s from the visit matrix nvisitas and the truck capacities capcam.
+// Recomputes the mass in tonnes over the horizon for each front using trips and truck payloads.
 void carregavetors(float *s, int **nvisitas, struct alocarga *carga, float *capcam, int **compatibilidade, int ncam, int npilhas);
 // Computes tciclo[i] = tdv[i] + tdc[i] + tcarga[i] + tbasc[i] for every pile.
 void carregatempociclo(int npilhas, float *tciclo, float *tdv, float *tdc, float *tcarga, float *tbasc);
@@ -12,6 +16,9 @@ void carregatempociclo(int npilhas, float *tciclo, float *tdv, float *tdc, float
 void carreganummax(int npilhas, int *nummax, float *tciclo, float *tcarga);
 // Computes nviagem[i] = floor(tcontrole / tciclo[i]) for every pile.
 void carreganviagem(int npilhas, int *nviagem, float tcontrole, float *tciclo);
+// Computes individual trip limits using each truck's available time.
+void carreganviagem(int npilhas, int ncam, int **nviagem, int *nummax, float tcontrole,
+                    float **tciclo, const float *dispmec);
 // Random initial loader assignment (loader i on pile i, then random swaps), followed by a recomputation of s.
 void constroisolucaoinicialcarga(struct alocarga *carga, float *s, int ncarga, int npilhas, int **nvisitas, float *capcam, int **compatibilidade, int ncam);
 // Random initial visit counts nvisitas[i][j] in 0..nviagem[i][j], followed by a recomputation of s.
@@ -30,6 +37,12 @@ void liberavetoralocarga(struct alocarga *vetor);
 int numcamfrente(int **nvisitas, struct alocarga *carga, int **compatibilidade, int ncam, int pilha, int *nummax);
 // Time-use fraction of truck cam: sum of nvisitas * tciclo over the served piles, divided by tcontrole.
 float produtcam(int **nvisitas, struct alocarga *carga, float *capcam, int **compatibilidade, float **tciclo, float tcontrole, int npilhas, int cam);
+// Total cycle time of active, compatible trips made by truck cam across all fronts.
+double tempoUtilizadoCaminhao(int **nvisitas, const struct alocarga *carga, int **compatibilidade,
+                             float **tciclo, int npilhas, int cam);
+// Removes trips when a new solution exceeds a truck's total time budget.
+void ajustarTempoCaminhoes(int **nvisitas, const struct alocarga *carga, int **compatibilidade,
+                          float **tciclo, float tcontrole, int npilhas, int ncam, const float *dispmec);
 // Number of operational piles served by truck cam, minus one (0 if none).
 int dinamico(int **nvisitas, struct alocarga *carga, int **compatibilidade, int npilhas, int cam);
 // Production of pile frente: sum over compatible trucks of nvisitas * truck capacity.
@@ -49,6 +62,7 @@ int camutilizados(int **nvisitas, struct alocarga *carga, int **compatibilidade,
 // Visit construction variant with a budget of nviagemmax trips per truck (contains debug output in the .cpp).
 void constroisolucaoinicialvisitas02(float *s, struct alocarga *carga, float *capcam, int **compatibilidade, int **nvisitas, int nviagemmax, int npilhas, int ncam);
 // Greedy initial solution: loaders and visit counts, waste phase first, then ore phase.
+// The construction routines take their ore target in tonnes over the horizon.
 void constroisolucaogulosa(float *s, struct alocarga *carga, float *capcam, int **compatibilidade, int **nvisitas, int **nviagem, int npilhas, int ncam, int nvar, float **teores, float *rec, int npminerio, float *QTDisp, float *cargamax, float *cargamin, int ncarga, float prodrec, float remrec);
 // GRASP initial solution: randomized greedy construction; alpha sets the size of the restricted candidate list.
 void constroisolucaoGRASP(float *s, struct alocarga *carga, float *capcam, int **compatibilidade,

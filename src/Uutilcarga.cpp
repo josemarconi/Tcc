@@ -216,29 +216,59 @@ void liberavetoralocarga(struct alocarga *vetor)
         free(vetor);
 }
 //----------------------------------------------------------------------
-// Returns the time-use fraction of truck cam: sum over operational piles with a compatible loader of
-// nvisitas[i][cam] * tciclo[i][cam], divided by tcontrole. Returns 0 when the sum or tcontrole is zero.
+static bool frenteAtendida(const struct alocarga *carga, int **compatibilidade, int frente, int cam)
+{
+    return carga[frente].equip != disponivel && carga[frente].op &&
+           compatibilidade[cam][carga[frente].equip] == compativel;
+}
+
+double tempoUtilizadoCaminhao(int **nvisitas, const struct alocarga *carga, int **compatibilidade,
+                             float **tciclo, int npilhas, int cam)
+{
+    double tempo = 0.0;
+    for (int f = 0; f < npilhas; f++) {
+        if (nvisitas[f][cam] > 0 && frenteAtendida(carga, compatibilidade, f, cam))
+            tempo += nvisitas[f][cam] * static_cast<double>(tciclo[f][cam]);
+    }
+    return tempo;
+}
+
+// Returns time used as a fraction of the control horizon.
 float produtcam(int **nvisitas, struct alocarga *carga, float *capcam, int **compatibilidade, float **tciclo, float tcontrole, int npilhas, int cam)
 {
-    float soma = 0.0;
-    // Accumulate trips times cycle time over the piles served by truck cam.
-    for(int i=0; i<npilhas; i++) {
-        // Skip piles without a loader or that are not operational.
-        if(carga[i].equip != disponivel && carga[i].op == true) {
-            // Only piles whose loader is compatible with truck cam.
-            if(compatibilidade[cam][carga[i].equip]) {
-                // CHANGED HERE: tciclo[i][cam]
-                soma += nvisitas[i][cam] * tciclo[i][cam];
+    if (tcontrole == 0.0f) return 0.0f;
+    return tempoUtilizadoCaminhao(nvisitas, carga, compatibilidade, tciclo, npilhas, cam) / tcontrole;
+}
+
+void ajustarTempoCaminhoes(int **nvisitas, const struct alocarga *carga, int **compatibilidade,
+                          float **tciclo, float tcontrole, int npilhas, int ncam, const float *dispmec)
+{
+    for (int c = 0; c < ncam; c++) {
+        const double limite = tcontrole * dispmec[c];
+        if (limite == 0.0) {
+            for (int f = 0; f < npilhas; f++)
+                nvisitas[f][c] = 0;
+            continue;
+        }
+
+        double tempo = tempoUtilizadoCaminhao(nvisitas, carga, compatibilidade, tciclo, npilhas, c);
+        while (tempo > limite) {
+            // Remove the longest active cycle first to keep as many trips as the budget allows.
+            int frente = -1;
+            float maior_ciclo = 0.0f;
+            for (int f = 0; f < npilhas; f++) {
+                if (nvisitas[f][c] > 0 && tciclo[f][c] > maior_ciclo &&
+                    frenteAtendida(carga, compatibilidade, f, c)) {
+                    frente = f;
+                    maior_ciclo = tciclo[f][c];
+                }
             }
+            if (frente == -1) break;
+            const int remover = static_cast<int>(fmin(nvisitas[frente][c], ceil((tempo - limite) / maior_ciclo)));
+            nvisitas[frente][c] -= remover;
+            tempo -= remover * static_cast<double>(maior_ciclo);
         }
     }
-    // No trips for this truck: return 0.
-    if(soma == 0) return 0.0;
-    // Control time is zero: return 0 to avoid a division by zero.
-    if(tcontrole == 0) return 0.0;
-
-    // Fraction of the control time used by the trips of truck cam.
-    return soma / tcontrole;
 }
 //----------------------------------------------------------------------
 // Returns the number of operational piles with a compatible loader that truck cam visits (nvisitas > 0),
@@ -429,9 +459,6 @@ void imprimerelatorio(char nomearq[], int metodo, unsigned long seed, float temp
         // Stop with an error if the file cannot be opened.
         if (!arquivo)
                 Erro("O arquivo nome nao pode ser aberto");
-        // Ore production (piles 0..npminerio-1) and total production (all piles).
-        float producaomin = prodtotal(s, npminerio);
-        float producaototal = prodtotal(s, npilhas);
         float rem = 0.0;
         long long fo = 0;
         float soma3 = 0.0;
@@ -439,6 +466,14 @@ void imprimerelatorio(char nomearq[], int metodo, unsigned long seed, float temp
 
         // Evaluate the objective value fo of this solution with favaliacao.
         fo = favaliacao(s, li, ls, rec, penalidadesup, penalidadeinf, penalidadeteorinv, npilhas, nvar, teores, prodmax, prodmin, prodrec, npminerio, remrec, remmax, remmin, nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, ncam, cargamax, cargamin, nummax, wfproducaoinv, wfproducaoqualp, wfproducaoqualn, wfteor, wfrem, wfremqualp, wfremqualn, wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn, wfprodcargainv, wfprodcargaqual, wfproducaocamtotal, wfproducaocarga, wfnumcamutilizados, wfestatico, wfnumcam, wfdist, dispmec, nviagem);
+
+        const float massa_minerio = prodtotal(s, npminerio);
+        const float massa_esteril = prodtotal(s, npilhas) - massa_minerio;
+        const float horas = horasDoHorizonte(tcontrole);
+        const auto taxa_horaria = [horas](float massa) {
+                return horas > 0.0f ? massa / horas : 0.0f;
+        };
+        const float producao_minerio_por_hora = taxa_horaria(massa_minerio);
 
         // soma4: for each grade parameter j, accumulates the absolute value of the sum over ore piles of
         // (teores[i][j] - rec[j]) * s[i]. It is computed but not printed.
@@ -464,21 +499,17 @@ void imprimerelatorio(char nomearq[], int metodo, unsigned long seed, float temp
         else
                 fprintf(arquivo, "VNS");
 
-        // fprintf(arquivo,"Seed: %d\nAbs: %d\nSoma: %f\nTempo: %f\nFo: %d",seed,abs(producaomin-prodrec),soma4,tempo,fo);
-        // fprintf(arquivo,"\n\n\nSeed: %d\n",seed;
-        // fprintf(arquivo,"Abs: %d",seed,abs(producaomin-prodrec),soma4,tempo,fo);
-        // fprintf(arquivo,"Soma: %f\n",seed,abs(producaomin-prodrec),soma4,tempo,fo);
         // Print the run time and the objective value fo.
         fprintf(arquivo, "\n\n\nTempo: %f\n", tempo);
         fprintf(arquivo, "Fo: %lld\n\n\n", fo);
 
         // Ore and waste summary, printed only when some ore was produced (REM divides by the ore production).
-        if (producaomin != 0)
+        if (massa_minerio != 0)
         {
-                fprintf(arquivo, "Producao de Minerio %8.2f  [%8.1f -%8.1f -%8.1f]\n", producaomin, prodmin, prodrec, prodmax);
-                fprintf(arquivo, "Producao de Esteril %8.2f\n", producaototal - producaomin);
+                fprintf(arquivo, "Producao de Minerio (t/h) %8.2f  [%8.1f -%8.1f -%8.1f]\n", producao_minerio_por_hora, prodmin, prodrec, prodmax);
+                fprintf(arquivo, "Producao de Esteril (t/h) %8.2f\n", taxa_horaria(massa_esteril));
                 // REM: waste production divided by ore production.
-                rem = (producaototal - producaomin) / producaomin;
+                rem = massa_esteril / massa_minerio;
                 fprintf(arquivo, "                REM %8.2f  [%8.2f -%8.2f -%8.2f]\n", rem, remmin, remrec, remmax);
         }
         /*else{
@@ -494,7 +525,7 @@ void imprimerelatorio(char nomearq[], int metodo, unsigned long seed, float temp
         fprintf(arquivo, "\t--------------------------\n");
 
         // Objective components: each line below prints one fa_* term of the evaluation for this solution.
-        fprintf(arquivo, "\t fa_producao %12lld\n", fa_producao(producaomin, prodmax, prodmin, prodrec, wfproducaoinv, wfproducaoqualp, wfproducaoqualn));
+        fprintf(arquivo, "\t fa_producao %12lld\n", fa_producao(producao_minerio_por_hora, prodmax, prodmin, prodrec, wfproducaoinv, wfproducaoqualp, wfproducaoqualn));
         // Grade term: fa_teor summed over all grade parameters, using the weighted average grade of each one.
         long long auxteor = 0;
         for (int j = 0; j < nvar; j++)
@@ -505,21 +536,22 @@ void imprimerelatorio(char nomearq[], int metodo, unsigned long seed, float temp
 
         fprintf(arquivo, "\t fa_rem      %12lld\n", fa_rem(rem, remmax, remmin, remrec, wfrem, wfremqualp, wfremqualn));
 
-        // Truck time-use term: fa_produtcam for each truck l, with produtcam(l) as value, 1.0 and 0.0 as the
-        // max and min limits and dispmec[l] as the target.
-        long long auxpcam = 0;
-        for (int l = 0; l < ncam; l++)
+        int acima_do_limite = 0;
+        for (int c = 0; c < ncam; c++)
         {
-                auxpcam += fa_produtcam(produtcam(nvisitas, carga, capcam, compatibilidade, tciclo, tcontrole, npilhas, l), 1.0, 0.0, dispmec[l], wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn);
+                const double limite = tcontrole * dispmec[c];
+                if (tempoUtilizadoCaminhao(nvisitas, carga, compatibilidade, tciclo, npilhas, c) > limite)
+                        acima_do_limite++;
         }
-        fprintf(arquivo, "\t fa_produtcam%12lld\n", auxpcam);
+        fprintf(arquivo, "\t Caminhoes acima do tempo disponivel: %d\n", acima_do_limite);
 
         // Loader production term: fa_prodcarga for each pile, with the max and min production of its loader.
         long long auxcarga = 0;
         for (int i = 0; i < npilhas; i++)
         {
 
-                auxcarga += fa_prodcarga(s[i], cargamax[carga[i].equip], cargamin[carga[i].equip], wfprodcargainv, wfprodcargaqual);
+                if (carga[i].equip != disponivel)
+                        auxcarga += fa_prodcarga(taxa_horaria(s[i]), cargamax[carga[i].equip], cargamin[carga[i].equip], wfprodcargainv, wfprodcargaqual);
         }
         fprintf(arquivo, "\t fa_prodcarga%12lld\n", auxcarga);
         // Number of trucks term (fa_numcam).
@@ -532,7 +564,7 @@ void imprimerelatorio(char nomearq[], int metodo, unsigned long seed, float temp
         fprintf(arquivo, "\t--------------------------\n");
 
         //******************************************************************************
-        fprintf(arquivo, "\n\n\nEquipamentos de Carga\n\n\n");
+        fprintf(arquivo, "\n\n\nEquipamentos de Carga (t/h)\n\n\n");
 
         fprintf(arquivo, "\t N�    Frente   [Prod Min - Prod Max]   Ritmo de Lavra     Pontuacao   STATUS\n");
         fprintf(arquivo, "\t------------------------------------------------------------------------------\n");
@@ -542,9 +574,13 @@ void imprimerelatorio(char nomearq[], int metodo, unsigned long seed, float temp
         {
                 if (carga[i].equip != disponivel && s[i] != 0)
                 {
-                        fprintf(arquivo, "\t %2d       %2d    [%8.1f  -%8.1f]     %8.1f    %10lld", carga[i].equip, i, cargamin[carga[i].equip], cargamax[carga[i].equip], s[i], fa_prodcarga(s[i], cargamax[carga[i].equip], cargamin[carga[i].equip], wfprodcargainv, wfprodcargaqual));
-                        // Loader range check: ok when cargamin <= s[i] <= cargamax, otherwise INV.
-                        if (s[i] >= cargamin[carga[i].equip] && s[i] <= cargamax[carga[i].equip])
+                        const int equip = carga[i].equip;
+                        const float producao_por_hora = taxa_horaria(s[i]);
+                        const long long penalidade = fa_prodcarga(producao_por_hora, cargamax[equip], cargamin[equip],
+                                                                 wfprodcargainv, wfprodcargaqual);
+                        fprintf(arquivo, "\t %2d       %2d    [%8.1f  -%8.1f]     %8.1f    %10lld",
+                                equip, i, cargamin[equip], cargamax[equip], producao_por_hora, penalidade);
+                        if (producao_por_hora >= cargamin[equip] && producao_por_hora <= cargamax[equip])
                                 fprintf(arquivo, "         ok!\n");
                         else
                         {
@@ -596,7 +632,7 @@ void imprimerelatorio(char nomearq[], int metodo, unsigned long seed, float temp
                         fprintf(arquivo,"%4d",i);
                 }
         }
-        fprintf(arquivo," |  Utilizacao  disponibilidade  Pontuacao  STATUS");
+        fprintf(arquivo," |  Utilizacao  disponibilidade  STATUS");
 
         fprintf(arquivo,"\n\t----------");
         for(int i=0;i<npilhas;i++){
@@ -630,9 +666,8 @@ void imprimerelatorio(char nomearq[], int metodo, unsigned long seed, float temp
                                 auxcam = produtcam(nvisitas,carga, capcam,compatibilidade, tciclo, tcontrole, npilhas, k);
                                 fprintf(arquivo," |    %5.1f",100*auxcam);
                                 fprintf(arquivo,"         %5.1f",100*dispmec[k]);
-                                fprintf(arquivo,"     %8d",fa_produtcam(auxcam,1.0, 0.0, dispmec[k], wfprodutcaminv, wfprodutcamqualp, wfprodutcamqualn));
 
-                               if(auxcam <= 1.0)
+                               if(auxcam <= dispmec[k])
                                         fprintf(arquivo,"        ok!");
                                else{
                                         viavel = false;
@@ -704,6 +739,20 @@ void carreganviagem(int npilhas, int *nviagem, float tcontrole, float *tciclo)
 {
         for (int i = 0; i < npilhas; i++)
                 nviagem[i] = (int)(floor(tcontrole / tciclo[i]));
+}
+
+void carreganviagem(int npilhas, int ncam, int **nviagem, int *nummax, float tcontrole,
+                    float **tciclo, const float *dispmec)
+{
+    for (int f = 0; f < npilhas; f++) {
+        nummax[f] = 0;
+        for (int c = 0; c < ncam; c++) {
+            const double limite = tcontrole * dispmec[c];
+            const double ciclo = tciclo[f][c];
+            nviagem[f][c] = ciclo > 0.01 ? static_cast<int>(floor(limite / ciclo)) : 0;
+            if (nviagem[f][c] > 0) nummax[f]++;
+        }
+    }
 }
 //----------------------------------------------------------------------
 
